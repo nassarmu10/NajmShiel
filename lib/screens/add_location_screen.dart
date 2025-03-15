@@ -22,8 +22,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   LocationType _selectedType = LocationType.historical;
   LatLng? _selectedLocation;
   
-  // Country center coordinates - Middle East region
-  final LatLng countryCenter = const LatLng(31.5, 37.0);
+  // Israel and Palestine center coordinates
+  final LatLng countryCenter = const LatLng(31.5, 35.0);
   
   @override
   Widget build(BuildContext context) {
@@ -65,7 +65,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      // urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+                      subdomains: const ['a', 'b', 'c'],
                       userAgentPackageName: 'com.example.country_map_explorer',
                       additionalOptions: const {
                         'attribution': '© OpenStreetMap contributors',
@@ -80,10 +82,10 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                             width: 40,
                             height: 40,
                             child: Icon(
-                              Icons.forest,
-                              color: Colors.white,
-                              size: 16,
-                            ),
+                            Icons.location_pin,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                           ),
                         ],
                       ),

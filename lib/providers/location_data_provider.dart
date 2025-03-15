@@ -1,96 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:map_explorer/models/location.dart';
+import 'package:map_explorer/services/location_service.dart';
 
 class LocationDataProvider with ChangeNotifier {
-  // Sample locations in the Middle East
-  final List<Location> _locations = [
-    Location(
-      id: '1',
-      name: 'Petra',
-      description: 'Ancient city carved into rose-colored rock faces, dating back to around 300 B.C. One of the new Seven Wonders of the World.',
-      type: LocationType.historical,
-      latitude: 30.3285,
-      longitude: 35.4444,
-      createdAt: DateTime.now().subtract(const Duration(days: 100)),
-    ),
-    Location(
-      id: '2',
-      name: 'Wadi Rum',
-      description: 'Dramatic desert landscape with massive sandstone mountains and red sand valleys. Known as the Valley of the Moon.',
-      type: LocationType.forest,
-      latitude: 29.5833,
-      longitude: 35.4167,
-      createdAt: DateTime.now().subtract(const Duration(days: 50)),
-    ),
-    Location(
-      id: '3',
-      name: 'Dubai',
-      description: 'Ultramodern city known for luxury shopping, futuristic architecture, and vibrant nightlife.',
-      type: LocationType.city,
-      latitude: 25.2048,
-      longitude: 55.2708,
-      createdAt: DateTime.now().subtract(const Duration(days: 25)),
-    ),
-    Location(
-      id: '4',
-      name: 'Pyramids of Giza',
-      description: 'Ancient Egyptian pyramids built as tombs for the pharaohs, the only surviving structures of the Seven Wonders of the Ancient World.',
-      type: LocationType.historical,
-      latitude: 29.9773,
-      longitude: 31.1325,
-      createdAt: DateTime.now().subtract(const Duration(days: 200)),
-    ),
-    Location(
-      id: '5',
-      name: 'Dead Sea',
-      description: 'Salt lake bordered by Jordan and Israel, known for its buoyancy and mineral-rich mud. At 430.5 meters below sea level, its shores are Earth\'s lowest point on land.',
-      type: LocationType.forest,
-      latitude: 31.5000,
-      longitude: 35.5000,
-      createdAt: DateTime.now().subtract(const Duration(days: 75)),
-    ),
-    Location(
-      id: '6',
-      name: 'Jerusalem',
-      description: 'Historic city considered holy by three major Abrahamic religions: Judaism, Christianity, and Islam.',
-      type: LocationType.city,
-      latitude: 31.7683,
-      longitude: 35.2137,
-      createdAt: DateTime.now().subtract(const Duration(days: 120)),
-    ),
-    Location(
-      id: '7',
-      name: 'Burj Khalifa',
-      description: 'At 828 meters, it\'s the world\'s tallest building and a global icon.',
-      type: LocationType.other,
-      latitude: 25.1972,
-      longitude: 55.2744,
-      createdAt: DateTime.now().subtract(const Duration(days: 30)),
-    ),
-    Location(
-      id: '8',
-      name: 'Istanbul',
-      description: 'Transcontinental city straddling Europe and Asia across the Bosphorus Strait, known for its rich history and cultural heritage.',
-      type: LocationType.city,
-      latitude: 41.0082,
-      longitude: 28.9784,
-      createdAt: DateTime.now().subtract(const Duration(days: 60)),
-    ),
-  ];
-
+  final FirebaseLocationService _firebaseService = FirebaseLocationService();
+  
+  List<Location> _locations = [];
+  bool _isLoading = true;
+  
   // Filter settings
   bool _showHistorical = true;
   bool _showForests = true;
   bool _showCities = true;
   bool _showOther = true;
-
+  
+  LocationDataProvider() {
+    // Load locations when provider is created
+    _loadLocations();
+  }
+  
   // Getters
   List<Location> get locations => _locations;
+  bool get isLoading => _isLoading;
   bool get showHistorical => _showHistorical;
   bool get showForests => _showForests;
   bool get showCities => _showCities;
   bool get showOther => _showOther;
-
+  
   // Get filtered locations
   List<Location> get filteredLocations {
     return _locations.where((location) {
@@ -106,35 +42,59 @@ class LocationDataProvider with ChangeNotifier {
       }
     }).toList();
   }
-
-  // Add a new location
-  void addLocation(Location location) {
-    _locations.add(location);
+  
+  // Load locations from Firebase
+  Future<void> _loadLocations() async {
+    _isLoading = true;
     notifyListeners();
+    
+    try {
+      _locations = await _firebaseService.getLocations();
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      print('Error loading locations: $e');
+      _isLoading = false;
+      notifyListeners();
+    }
   }
-
+  
+  Future<void> refreshLocations() async {
+    await _loadLocations();
+  }
+  // Add a new location
+  Future<void> addLocation(Location location) async {
+    try {
+      await _firebaseService.addLocation(location);
+      // Reload to get the newly added location
+      await _loadLocations();
+    } catch (e) {
+      print('Error adding location: $e');
+      rethrow;
+    }
+  }
+  
   // Toggle filters
   void toggleHistorical() {
     _showHistorical = !_showHistorical;
     notifyListeners();
   }
-
+  
   void toggleForests() {
     _showForests = !_showForests;
     notifyListeners();
   }
-
+  
   void toggleCities() {
     _showCities = !_showCities;
     notifyListeners();
   }
-
+  
   void toggleOther() {
     _showOther = !_showOther;
     notifyListeners();
   }
-
-  // Set all filters
+  
   void setAllFilters(bool value) {
     _showHistorical = value;
     _showForests = value;
@@ -143,3 +103,104 @@ class LocationDataProvider with ChangeNotifier {
     notifyListeners();
   }
 }
+
+
+
+
+
+
+
+
+
+  // final List<Location> _locations = [
+  //   Location(
+  //     id: '1',
+  //     name: 'Old City of Jerusalem',
+  //     description: 'Historic walled area with religious sites including the Western Wall, Church of the Holy Sepulchre, and Dome of the Rock.',
+  //     type: LocationType.historical,
+  //     latitude: 31.7767,
+  //     longitude: 35.2345,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 100)),
+  //   ),
+  //   Location(
+  //     id: '2',
+  //     name: 'Dead Sea',
+  //     description: 'Salt lake bordered by Jordan and Israel/Palestine, known for its buoyancy and mineral-rich mud. Its shores are Earth\'s lowest point on land.',
+  //     type: LocationType.forest,
+  //     latitude: 31.5497,
+  //     longitude: 35.4730,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 50)),
+  //   ),
+  //   Location(
+  //     id: '3',
+  //     name: 'Tel Aviv',
+  //     description: 'Coastal city known for its vibrant culture, beaches, and Bauhaus architecture.',
+  //     type: LocationType.city,
+  //     latitude: 32.0853,
+  //     longitude: 34.7818,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 25)),
+  //   ),
+  //   Location(
+  //     id: '4',
+  //     name: 'Church of the Nativity',
+  //     description: 'Birthplace of Jesus in Bethlehem, one of the oldest operating churches in the world.',
+  //     type: LocationType.historical,
+  //     latitude: 31.7042,
+  //     longitude: 35.2062,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 200)),
+  //   ),
+  //   Location(
+  //     id: '5',
+  //     name: 'Ein Gedi Nature Reserve',
+  //     description: 'Oasis near the Dead Sea with hiking trails, waterfalls, and diverse wildlife.',
+  //     type: LocationType.forest,
+  //     latitude: 31.4667,
+  //     longitude: 35.3833,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 75)),
+  //   ),
+  //   Location(
+  //     id: '6',
+  //     name: 'Haifa',
+  //     description: 'Northern port city built on the slopes of Mount Carmel, home to the Bahá\'í Gardens.',
+  //     type: LocationType.city,
+  //     latitude: 32.7940,
+  //     longitude: 34.9896,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 120)),
+  //   ),
+  //   Location(
+  //     id: '7',
+  //     name: 'Al-Aqsa Mosque',
+  //     description: 'Located on the Temple Mount in Jerusalem, one of the holiest sites in Islam.',
+  //     type: LocationType.historical,
+  //     latitude: 31.7761,
+  //     longitude: 35.2358,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 150)),
+  //   ),
+  //   Location(
+  //     id: '8',
+  //     name: 'Masada',
+  //     description: 'Ancient fortress on a plateau overlooking the Dead Sea, site of the last stand of Jewish rebels against the Romans.',
+  //     type: LocationType.historical,
+  //     latitude: 31.3158,
+  //     longitude: 35.3512,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 180)),
+  //   ),
+  //   Location(
+  //     id: '9',
+  //     name: 'Gaza City',
+  //     description: 'Largest city in the Gaza Strip, located on the Mediterranean coast.',
+  //     type: LocationType.city,
+  //     latitude: 31.5017,
+  //     longitude: 34.4668,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 90)),
+  //   ),
+  //   Location(
+  //     id: '10',
+  //     name: 'Jericho',
+  //     description: 'One of the oldest continuously inhabited cities in the world, located in the West Bank.',
+  //     type: LocationType.city,
+  //     latitude: 31.8667,
+  //     longitude: 35.4500,
+  //     createdAt: DateTime.now().subtract(const Duration(days: 110)),
+  //   ),
+  // ];

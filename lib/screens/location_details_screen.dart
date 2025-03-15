@@ -37,7 +37,9 @@ class LocationDetailsScreen extends StatelessWidget {
                     options: MapOptions(
                       center: location.latLng,
                       zoom: 12,
-                      interactiveFlags: InteractiveFlag.none,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
+                      ),
                     ),
                     children: [
                       TileLayer(
@@ -54,10 +56,10 @@ class LocationDetailsScreen extends StatelessWidget {
                             width: 40,
                             height: 40,
                             child: Icon(
-                              _getIconForType(location.type),
-                              color: Colors.white,
-                              size: 16,
-                            ),
+                          _getIconForType(location.type),
+                          color: Colors.white,
+                          size: 20,
+                        ),
                           ),
                         ],
                       ),

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
 enum LocationType {
@@ -41,5 +42,39 @@ class Location {
       case LocationType.other:
         return 'Other';
     }
+  }
+
+  // Create from Firestore document
+  factory Location.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
+    // Parse the type from string
+    LocationType locationType;
+    try {
+      locationType = LocationType.values.firstWhere(
+        (e) => e.toString() == data['type'],
+        orElse: () => LocationType.other,
+      );
+    } catch (_) {
+      locationType = LocationType.other;
+    }
+    
+    // Handle timestamp from Firestore
+    DateTime createdAtDate;
+    if (data['createdAt'] is Timestamp) {
+      createdAtDate = (data['createdAt'] as Timestamp).toDate();
+    } else {
+      createdAtDate = DateTime.now();
+    }
+    
+    return Location(
+      id: doc.id,
+      name: data['name'] ?? 'Unnamed Location',
+      description: data['description'] ?? '',
+      type: locationType,
+      latitude: data['latitude'] ?? 0.0,
+      longitude: data['longitude'] ?? 0.0,
+      createdAt: createdAtDate,
+    );
   }
 }

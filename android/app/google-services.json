@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "482997368728",
+    "project_id": "najmshiel-6e18a",
+    "storage_bucket": "najmshiel-6e18a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:482997368728:android:0b1bc6347db1165b379ded",
+        "android_client_info": {
+          "package_name": "com.example.najmshiel"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQ9w_OYbgJsNUZ6ncq0smEDvZdGIIG_wA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

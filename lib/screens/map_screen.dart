@@ -16,17 +16,24 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final MapController mapController = MapController();
   
-  // Country center coordinates and zoom level
-  // Middle East region center
-  final LatLng countryCenter = const LatLng(31.5, 37.0); // Central point in Middle East
-  final double initialZoom = 5.0; // Zoomed out to show the region
+  // Israel and Palestine region center and zoom
+  final LatLng countryCenter = const LatLng(31.5, 35.0); // Center between Israel and Palestine
+  final double initialZoom = 8.0; // Closer zoom to show the region in detail
   
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Country Explorer'),
+        title: const Text('نجم سهيل'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              Provider.of<LocationDataProvider>(context, listen: false)
+                  .refreshLocations();
+            },
+            tooltip: 'Refresh locations',
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilters,
@@ -45,9 +52,11 @@ class _MapScreenState extends State<MapScreen> {
               initialZoom: initialZoom,
             ),
             children: [
-              // Base map tiles layer with attribution
+              // Base map tiles layer with attribution - English/Arabic language preference
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                // urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+                subdomains: const ['a', 'b', 'c'],
                 userAgentPackageName: 'com.example.country_map_explorer',
                 maxZoom: 19,
                 tileBuilder: (context, widget, tile) {
@@ -58,6 +67,7 @@ class _MapScreenState extends State<MapScreen> {
                 },
               ),
               
+              // Location markers
               MarkerLayer(
                 markers: locations.map((location) => 
                   Marker(
@@ -65,22 +75,22 @@ class _MapScreenState extends State<MapScreen> {
                     child: GestureDetector(
                       onTap: () => _showLocationDetails(location.id),
                       child: Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(1),
                         decoration: BoxDecoration(
                           color: _getColorForType(location.type),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.2),
-                              blurRadius: 3,
-                              spreadRadius: 1,
+                              blurRadius: 2,
+                              spreadRadius: 0.5,
                             ),
                           ],
                         ),
                         child: Icon(
                           _getIconForType(location.type),
                           color: Colors.white,
-                          size: 20,
+                          size: 14,
                         ),
                       ),
                     ),
