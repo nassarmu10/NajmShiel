@@ -27,45 +27,134 @@ class LocationDetailsScreen extends StatelessWidget {
           ),
           body: SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Map view at the top
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ADD THIS SECTION: Images gallery at the top
+              if (location.images.isNotEmpty)
                 SizedBox(
-                  height: 200,
+                  height: 250,
                   width: double.infinity,
-                  child: FlutterMap(
-                    options: MapOptions(
-                      center: location.latLng,
-                      zoom: 12,
-                      interactionOptions: const InteractionOptions(
-                        flags: InteractiveFlag.none,
-                      ),
-                    ),
+                  child: Stack(
                     children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.country_map_explorer',
-                        additionalOptions: const {
-                          'attribution': '© OpenStreetMap contributors',
+                      // Image PageView
+                      PageView.builder(
+                        itemCount: location.images.length,
+                        itemBuilder: (context, index) {
+                          return Image.network(
+                            location.images[index],
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: Icon(Icons.error, color: Colors.red, size: 50),
+                                ),
+                              );
+                            },
+                          );
                         },
                       ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: location.latLng,
-                            width: 40,
-                            height: 40,
-                            child: Icon(
-                          _getIconForType(location.type),
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                      
+                      // Image counter indicator
+                      if (location.images.length > 1)
+                        Positioned(
+                          bottom: 10,
+                          right: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '1/${location.images.length}',  // This is static, ideally would update with current page
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
+                        ),
                     ],
                   ),
+                )
+              else
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.image_not_supported,
+                          size: 50,
+                          color: Colors.grey,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'No images available',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
+            // child: Column(
+            //   crossAxisAlignment: CrossAxisAlignment.start,
+            //   children: [
+            //     // Map view at the top
+            //     SizedBox(
+            //       height: 200,
+            //       width: double.infinity,
+            //       child: FlutterMap(
+            //         options: MapOptions(
+            //           initialCenter: location.latLng,
+            //           initialZoom: 12,
+            //           interactionOptions: const InteractionOptions(
+            //             flags: InteractiveFlag.none,
+            //           ),
+            //         ),
+            //         children: [
+            //           TileLayer(
+            //             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            //             userAgentPackageName: 'com.example.country_map_explorer',
+            //             additionalOptions: const {
+            //               'attribution': '© OpenStreetMap contributors',
+            //             },
+            //           ),
+            //           MarkerLayer(
+            //             markers: [
+            //               Marker(
+            //                 point: location.latLng,
+            //                 width: 40,
+            //                 height: 40,
+            //                 child: Icon(
+            //               _getIconForType(location.type),
+            //               color: Colors.white,
+            //               size: 20,
+            //             ),
+            //               ),
+            //             ],
+            //           ),
+            //         ],
+            //       ),
+            //     ),
                 
                 // Location details
                 Padding(

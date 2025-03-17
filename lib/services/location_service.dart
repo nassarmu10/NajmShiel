@@ -55,6 +55,7 @@ class FirebaseLocationService {
         'longitude': location.longitude,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': 'anonymous',
+        'images': location.images,
       });
     } catch (e) {
       print('Error adding location: $e');

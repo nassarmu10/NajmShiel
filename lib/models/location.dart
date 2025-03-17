@@ -16,6 +16,7 @@ class Location {
   final double latitude;
   final double longitude;
   final DateTime createdAt;
+  final List<String> images;
 
   Location({
     required this.id,
@@ -25,6 +26,7 @@ class Location {
     required this.latitude,
     required this.longitude,
     required this.createdAt,
+    this.images = const [],
   });
 
   // Convenience getter for LatLng
@@ -66,7 +68,12 @@ class Location {
     } else {
       createdAtDate = DateTime.now();
     }
-    
+    // Extract image URLs from Firestore
+    List<String> images = [];
+    if (data['images'] != null) {
+      images = List<String>.from(data['images']);
+    }
+
     return Location(
       id: doc.id,
       name: data['name'] ?? 'Unnamed Location',
@@ -75,6 +82,7 @@ class Location {
       latitude: data['latitude'] ?? 0.0,
       longitude: data['longitude'] ?? 0.0,
       createdAt: createdAtDate,
+      images: images,
     );
   }
 }
