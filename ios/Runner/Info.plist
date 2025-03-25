@@ -45,5 +45,14 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocationAlwaysUsageDescription</key>
+    <string>Your location is required</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Your location is required</string>
 </dict>
 </plist>
