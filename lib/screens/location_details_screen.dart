@@ -1,15 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:map_explorer/widgets/comment_list_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../models/location.dart';
 import '../providers/location_data_provider.dart';
+import '../widgets/add_comment_widget.dart';
+import '../widgets/vote_widget.dart';
 
-class LocationDetailsScreen extends StatelessWidget {
+class LocationDetailsScreen extends StatefulWidget {
   final String locationId;
   
   const LocationDetailsScreen({Key? key, required this.locationId}) : super(key: key);
+  
+  @override
+  _LocationDetailsScreenState createState() => _LocationDetailsScreenState();
+}
+
+class _LocationDetailsScreenState extends State<LocationDetailsScreen> {
+  bool _showAddComment = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    // Set a temporary user ID if not set (in a real app, this would come from auth)
+    final provider = Provider.of<LocationDataProvider>(context, listen: false);
+    if (provider.currentUserId == null) {
+      provider.setCurrentUserId('user_${DateTime.now().millisecondsSinceEpoch}');
+    }
+  }
+  
+  void _toggleAddComment() {
+    setState(() {
+      _showAddComment = !_showAddComment;
+    });
+  }
+  
+  void _refreshComments() {
+    setState(() {
+      // This will trigger a rebuild of the CommentsList widget
+    });
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -17,7 +50,7 @@ class LocationDetailsScreen extends StatelessWidget {
       builder: (context, locationProvider, child) {
         // Find the location by ID
         final location = locationProvider.locations.firstWhere(
-          (loc) => loc.id == locationId,
+          (loc) => loc.id == widget.locationId,
           orElse: () => throw Exception('Location not found'),
         );
         
@@ -27,134 +60,94 @@ class LocationDetailsScreen extends StatelessWidget {
           ),
           body: SingleChildScrollView(
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ADD THIS SECTION: Images gallery at the top
-              if (location.images.isNotEmpty)
-                SizedBox(
-                  height: 250,
-                  width: double.infinity,
-                  child: Stack(
-                    children: [
-                      // Image PageView
-                      PageView.builder(
-                        itemCount: location.images.length,
-                        itemBuilder: (context, index) {
-                          return Image.network(
-                            location.images[index],
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Images gallery at the top
+                if (location.images.isNotEmpty)
+                  SizedBox(
+                    height: 250,
+                    width: double.infinity,
+                    child: Stack(
+                      children: [
+                        // Image PageView
+                        PageView.builder(
+                          itemCount: location.images.length,
+                          itemBuilder: (context, index) {
+                            return Image.network(
+                              location.images[index],
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[300],
+                                  child: const Center(
+                                    child: Icon(Icons.error, color: Colors.red, size: 50),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        
+                        // Image counter indicator
+                        if (location.images.length > 1)
+                          Positioned(
+                            bottom: 10,
+                            right: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '1/${location.images.length}',  // This is static, ideally would update with current page
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: Colors.grey[300],
-                                child: const Center(
-                                  child: Icon(Icons.error, color: Colors.red, size: 50),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                      
-                      // Image counter indicator
-                      if (location.images.length > 1)
-                        Positioned(
-                          bottom: 10,
-                          right: 10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '1/${location.images.length}',  // This is static, ideally would update with current page
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  height: 200,
-                  width: double.infinity,
-                  color: Colors.grey[300],
-                  child: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.image_not_supported,
-                          size: 50,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'No images available',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
                       ],
                     ),
+                  )
+                else
+                  Container(
+                    height: 200,
+                    width: double.infinity,
+                    color: Colors.grey[300],
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.image_not_supported,
+                            size: 50,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'No images available',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-            // child: Column(
-            //   crossAxisAlignment: CrossAxisAlignment.start,
-            //   children: [
-            //     // Map view at the top
-            //     SizedBox(
-            //       height: 200,
-            //       width: double.infinity,
-            //       child: FlutterMap(
-            //         options: MapOptions(
-            //           initialCenter: location.latLng,
-            //           initialZoom: 12,
-            //           interactionOptions: const InteractionOptions(
-            //             flags: InteractiveFlag.none,
-            //           ),
-            //         ),
-            //         children: [
-            //           TileLayer(
-            //             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            //             userAgentPackageName: 'com.example.country_map_explorer',
-            //             additionalOptions: const {
-            //               'attribution': '© OpenStreetMap contributors',
-            //             },
-            //           ),
-            //           MarkerLayer(
-            //             markers: [
-            //               Marker(
-            //                 point: location.latLng,
-            //                 width: 40,
-            //                 height: 40,
-            //                 child: Icon(
-            //               _getIconForType(location.type),
-            //               color: Colors.white,
-            //               size: 20,
-            //             ),
-            //               ),
-            //             ],
-            //           ),
-            //         ],
-            //       ),
-            //     ),
                 
                 // Location details
                 Padding(
@@ -223,9 +216,82 @@ class LocationDetailsScreen extends StatelessWidget {
                         'Coordinates: ${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}',
                         style: TextStyle(color: Colors.grey[700], fontSize: 12),
                       ),
+                      
+                      // NEW: Map showing the location
+                      Container(
+                        height: 200,
+                        width: double.infinity,
+                        margin: const EdgeInsets.symmetric(vertical: 16),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: FlutterMap(
+                            options: MapOptions(
+                              initialCenter: location.latLng,
+                              initialZoom: 12,
+                              interactionOptions: const InteractionOptions(
+                                flags: InteractiveFlag.none,
+                              ),
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+                                subdomains: const ['a', 'b', 'c'],
+                                additionalOptions: const {
+                                  'attribution': '© OpenStreetMap contributors',
+                                },
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: location.latLng,
+                                    child: Icon(
+                                      _getIconForType(location.type),
+                                      color: _getColorForType(location.type),
+                                      size: 24,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
+                
+                // NEW: Vote section
+                VoteWidget(locationId: widget.locationId),
+                
+                // Divider
+                const Divider(thickness: 1),
+                
+                // NEW: Comments section
+                CommentsList(locationId: widget.locationId),
+                
+                // Add comment button/form
+                if (_showAddComment)
+                  AddCommentWidget(
+                    locationId: widget.locationId,
+                    onCommentAdded: _refreshComments,
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _toggleAddComment,
+                        icon: const Icon(Icons.add_comment),
+                        label: const Text('ADD A COMMENT'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                
+                const SizedBox(height: 40), // Bottom padding
               ],
             ),
           ),

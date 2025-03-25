@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:map_explorer/models/location.dart';
+import 'package:map_explorer/models/comment.dart';
+import 'package:map_explorer/models/vote.dart';
 import 'package:map_explorer/services/location_service.dart';
 
 class LocationDataProvider with ChangeNotifier {
   final FirebaseLocationService _firebaseService = FirebaseLocationService();
   
   List<Location> _locations = [];
+  Map<String, List<Comment>> _locationComments = {};
+  Map<String, VoteSummary> _locationVotes = {};
+  String? _currentUserId; // For tracking the current user
   bool _isLoading = true;
   
   // Filter settings
@@ -26,6 +31,13 @@ class LocationDataProvider with ChangeNotifier {
   bool get showForests => _showForests;
   bool get showCities => _showCities;
   bool get showOther => _showOther;
+  String? get currentUserId => _currentUserId;
+  
+  // Set current user
+  void setCurrentUserId(String userId) {
+    _currentUserId = userId;
+    notifyListeners();
+  }
   
   // Get filtered locations
   List<Location> get filteredLocations {
@@ -62,6 +74,7 @@ class LocationDataProvider with ChangeNotifier {
   Future<void> refreshLocations() async {
     await _loadLocations();
   }
+  
   // Add a new location
   Future<void> addLocation(Location location) async {
     try {
@@ -102,10 +115,119 @@ class LocationDataProvider with ChangeNotifier {
     _showOther = value;
     notifyListeners();
   }
+
+  // COMMENT METHODS
+
+  // Get comments for a location
+  Future<List<Comment>> getCommentsForLocation(String locationId) async {
+    if (_locationComments.containsKey(locationId)) {
+      return _locationComments[locationId]!;
+    }
+
+    try {
+      final comments = await _firebaseService.getCommentsForLocation(locationId);
+      _locationComments[locationId] = comments;
+      notifyListeners();
+      return comments;
+    } catch (e) {
+      print('Error getting comments: $e');
+      return [];
+    }
+  }
+
+  // Add a comment to a location
+  Future<void> addComment(Comment comment) async {
+    try {
+      await _firebaseService.addComment(comment);
+      
+      // Update local cache
+      if (_locationComments.containsKey(comment.locationId)) {
+        _locationComments[comment.locationId]!.insert(0, comment);
+        notifyListeners();
+      } else {
+        await getCommentsForLocation(comment.locationId);
+      }
+    } catch (e) {
+      print('Error adding comment: $e');
+      rethrow;
+    }
+  }
+
+  // VOTE METHODS
+
+  // Get vote summary for a location
+  Future<VoteSummary> getVoteSummary(String locationId) async {
+    if (_locationVotes.containsKey(locationId)) {
+      return _locationVotes[locationId]!;
+    }
+
+    try {
+      final voteSummary = await _firebaseService.getVoteSummary(locationId);
+      _locationVotes[locationId] = voteSummary;
+      notifyListeners();
+      return voteSummary;
+    } catch (e) {
+      print('Error getting vote summary: $e');
+      return VoteSummary(likes: 0, dislikes: 0);
+    }
+  }
+
+  // Add or update a user's vote
+  Future<void> addOrUpdateVote(String locationId, VoteType voteType) async {
+    if (_currentUserId == null) {
+      throw Exception('User ID not set');
+    }
+
+    final vote = Vote(
+      id: '', // Firestore will generate this
+      locationId: locationId,
+      userId: _currentUserId!,
+      voteType: voteType,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      await _firebaseService.addOrUpdateVote(vote);
+      
+      // Update local cache
+      await getVoteSummary(locationId); // Refresh vote count
+    } catch (e) {
+      print('Error adding vote: $e');
+      rethrow;
+    }
+  }
+
+  // Remove a user's vote
+  Future<void> removeVote(String locationId) async {
+    if (_currentUserId == null) {
+      throw Exception('User ID not set');
+    }
+
+    try {
+      await _firebaseService.removeVote(locationId, _currentUserId!);
+      
+      // Update local cache
+      await getVoteSummary(locationId); // Refresh vote count
+    } catch (e) {
+      print('Error removing vote: $e');
+      rethrow;
+    }
+  }
+
+  // Get the current user's vote for a location
+  Future<VoteType?> getUserVote(String locationId) async {
+    if (_currentUserId == null) {
+      return null;
+    }
+
+    try {
+      return await _firebaseService.getUserVote(locationId, _currentUserId!);
+    } catch (e) {
+      print('Error getting user vote: $e');
+      return null;
+    }
+  }
 }
-
-
-
 
 
 

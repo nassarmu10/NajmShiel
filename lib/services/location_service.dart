@@ -1,10 +1,13 @@
 import 'package:map_explorer/models/location.dart';
+import 'package:map_explorer/models/comment.dart';
+import 'package:map_explorer/models/vote.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 
 class FirebaseLocationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String locationsCollection = 'locations';
+  final String commentsCollection = 'comments';
+  final String votesCollection = 'votes';
   
   // Fetch all locations with filtering
   Future<List<Location>> getLocations({
@@ -75,5 +78,176 @@ class FirebaseLocationService {
       print('Error getting location: $e');
       return null;
     }
+  }
+
+  // COMMENT RELATED METHODS
+
+  // Add a comment to a location
+  Future<void> addComment(Comment comment) async {
+    try {
+      await _firestore.collection(commentsCollection).add(comment.toMap());
+    } catch (e) {
+      print('Error adding comment: $e');
+      throw e;
+    }
+  }
+
+  // Get all comments for a location
+  Future<List<Comment>> getCommentsForLocation(String locationId) async {
+    try {
+      final snapshot = await _firestore
+          .collection(commentsCollection)
+          .where('locationId', isEqualTo: locationId)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) => Comment.fromFirestore(doc)).toList();
+    } catch (e) {
+      print('Error fetching comments: $e');
+      return [];
+    }
+  }
+
+  // Stream comments for a location (for real-time updates)
+  Stream<List<Comment>> streamCommentsForLocation(String locationId) {
+    return _firestore
+        .collection(commentsCollection)
+        .where('locationId', isEqualTo: locationId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => Comment.fromFirestore(doc)).toList();
+    });
+  }
+
+  // VOTE RELATED METHODS
+
+  // Add or update a vote
+  Future<void> addOrUpdateVote(Vote vote) async {
+    try {
+      // Check if user already voted for this location
+      final existingVote = await _firestore
+          .collection(votesCollection)
+          .where('locationId', isEqualTo: vote.locationId)
+          .where('userId', isEqualTo: vote.userId)
+          .get();
+
+      if (existingVote.docs.isNotEmpty) {
+        // Update existing vote
+        final docId = existingVote.docs.first.id;
+        await _firestore.collection(votesCollection).doc(docId).update({
+          'voteType': vote.voteType.toString(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Add new vote
+        await _firestore.collection(votesCollection).add(vote.toMap());
+      }
+    } catch (e) {
+      print('Error adding/updating vote: $e');
+      throw e;
+    }
+  }
+
+  // Remove a vote
+  Future<void> removeVote(String locationId, String userId) async {
+    try {
+      final existingVote = await _firestore
+          .collection(votesCollection)
+          .where('locationId', isEqualTo: locationId)
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      if (existingVote.docs.isNotEmpty) {
+        final docId = existingVote.docs.first.id;
+        await _firestore.collection(votesCollection).doc(docId).delete();
+      }
+    } catch (e) {
+      print('Error removing vote: $e');
+      throw e;
+    }
+  }
+
+  // Get vote summary for a location
+  Future<VoteSummary> getVoteSummary(String locationId) async {
+    try {
+      final snapshot = await _firestore
+          .collection(votesCollection)
+          .where('locationId', isEqualTo: locationId)
+          .get();
+
+      int likes = 0;
+      int dislikes = 0;
+
+      for (var doc in snapshot.docs) {
+        Map<String, dynamic> data = doc.data();
+        String voteTypeStr = data['voteType'] ?? '';
+        
+        if (voteTypeStr == VoteType.like.toString()) {
+          likes++;
+        } else if (voteTypeStr == VoteType.dislike.toString()) {
+          dislikes++;
+        }
+      }
+
+      return VoteSummary(likes: likes, dislikes: dislikes);
+    } catch (e) {
+      print('Error getting vote summary: $e');
+      return VoteSummary(likes: 0, dislikes: 0);
+    }
+  }
+
+  // Get user's vote for a location
+  Future<VoteType?> getUserVote(String locationId, String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection(votesCollection)
+          .where('locationId', isEqualTo: locationId)
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        Map<String, dynamic> data = snapshot.docs.first.data();
+        String voteTypeStr = data['voteType'] ?? '';
+        
+        try {
+          return VoteType.values.firstWhere(
+            (e) => e.toString() == voteTypeStr,
+          );
+        } catch (_) {
+          return null;
+        }
+      }
+      
+      return null; // User hasn't voted
+    } catch (e) {
+      print('Error getting user vote: $e');
+      return null;
+    }
+  }
+
+  // Stream vote summary for a location (for real-time updates)
+  Stream<VoteSummary> streamVoteSummary(String locationId) {
+    return _firestore
+        .collection(votesCollection)
+        .where('locationId', isEqualTo: locationId)
+        .snapshots()
+        .map((snapshot) {
+      int likes = 0;
+      int dislikes = 0;
+
+      for (var doc in snapshot.docs) {
+        Map<String, dynamic> data = doc.data();
+        String voteTypeStr = data['voteType'] ?? '';
+        
+        if (voteTypeStr == VoteType.like.toString()) {
+          likes++;
+        } else if (voteTypeStr == VoteType.dislike.toString()) {
+          dislikes++;
+        }
+      }
+
+      return VoteSummary(likes: likes, dislikes: dislikes);
+    });
   }
 }
