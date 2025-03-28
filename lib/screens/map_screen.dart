@@ -13,12 +13,77 @@ class MapScreen extends StatefulWidget {
   _MapScreenState createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   final MapController mapController = MapController();
   
   // Israel and Palestine region center and zoom
-  final LatLng countryCenter = const LatLng(31.5, 35.0); // Center between Israel and Palestine
-  final double initialZoom = 8.0; // Closer zoom to show the region in detail
+  final LatLng countryCenter = const LatLng(31.5, 35.0); 
+  final double initialZoom = 8.0; 
+  
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+  
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeDataSafely();
+  }
+  
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // When app is resumed, refresh data if needed
+      if (!mounted) return;
+      final provider = Provider.of<LocationDataProvider>(context, listen: false);
+      provider.refreshLocations();
+    }
+  }
+  
+  // Initialize data safely without triggering rebuild during build
+  Future<void> _initializeDataSafely() async {
+    try {
+      // Set a temporary user ID without triggering notifications
+      final provider = Provider.of<LocationDataProvider>(context, listen: false);
+      
+      // Set default user ID without triggering rebuild
+      provider.setCurrentUserId('anonymous_user', notify: false);
+      
+      // Initialize data silently
+      await provider.silentInitialize();
+      
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error initializing data: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'حدث خطأ أثناء تحميل البيانات: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+  
+  void _retry() {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = '';
+    });
+    _initializeDataSafely();
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -29,85 +94,128 @@ class _MapScreenState extends State<MapScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              Provider.of<LocationDataProvider>(context, listen: false)
-                  .refreshLocations();
+              final provider = Provider.of<LocationDataProvider>(context, listen: false);
+              provider.refreshLocations();
             },
-            tooltip: 'Refresh locations',
+            tooltip: 'تحديث المواقع',
           ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilters,
-            tooltip: 'Filter locations',
+            tooltip: 'تصفية المواقع',
           ),
         ],
       ),
-      body: Consumer<LocationDataProvider>(
-        builder: (context, locationProvider, child) {
-          final locations = locationProvider.filteredLocations;
-          
-          return FlutterMap(
-            mapController: mapController,
-            options: MapOptions(
-              initialCenter: countryCenter,
-              initialZoom: initialZoom,
-            ),
-            children: [
-              // Base map tiles layer with attribution - English/Arabic language preference
-              TileLayer(
-                // urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c'],
-                userAgentPackageName: 'com.example.country_map_explorer',
-                maxZoom: 19,
-                tileBuilder: (context, widget, tile) {
-                  return widget;
-                },
-                additionalOptions: const {
-                  'attribution': '© OpenStreetMap contributors',
-                },
-              ),
-              
-              // Location markers
-              MarkerLayer(
-                markers: locations.map((location) => 
-                  Marker(
-                    point: location.latLng,
-                    child: GestureDetector(
-                      onTap: () => _showLocationDetails(location.id),
-                      child: Container(
-                        padding: const EdgeInsets.all(1),
-                        decoration: BoxDecoration(
-                          color: _getColorForType(location.type),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 2,
-                              spreadRadius: 0.5,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _getIconForType(location.type),
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                      ),
-                    ),
-                  )
-                ).toList(),
-              ),
-            ],
-          );
-        },
-      ),
+      body: _buildMainContent(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.pushNamed(context, '/add_location');
         },
-        tooltip: 'Add location',
+        tooltip: 'إضافة موقع',
         child: const Icon(Icons.add_location_alt),
       ),
+    );
+  }
+  
+  Widget _buildMainContent() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              'جاري تحميل الخريطة...',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _retry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('إعادة المحاولة'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return _buildMap();
+  }
+  
+  Widget _buildMap() {
+    return Consumer<LocationDataProvider>(
+      builder: (context, locationProvider, child) {
+        final locations = locationProvider.filteredLocations;
+        
+        return FlutterMap(
+          mapController: mapController,
+          options: MapOptions(
+            initialCenter: countryCenter,
+            initialZoom: initialZoom,
+            // Keep these minimal to avoid performance issues
+          ),
+          children: [
+            // Base map tiles layer
+            TileLayer(
+              // urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+              subdomains: const ['a', 'b', 'c'],
+              // Using a simpler tile source can improve performance
+              userAgentPackageName: 'com.example.najmshiel',
+              maxZoom: 18,
+            ),
+            
+            // Location markers
+            MarkerLayer(
+              markers: locations.map((location) => 
+                Marker(
+                  point: location.latLng,
+                  child: GestureDetector(
+                    onTap: () => _showLocationDetails(location.id),
+                    child: Container(
+                      padding: const EdgeInsets.all(1),
+                      decoration: BoxDecoration(
+                        color: _getColorForType(location.type),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 2,
+                            spreadRadius: 0.5,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _getIconForType(location.type),
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                )
+              ).toList(),
+            ),
+          ],
+        );
+      },
     );
   }
   
@@ -140,8 +248,9 @@ class _MapScreenState extends State<MapScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                   const Text(
-                    'Filter Locations',
+                    'تصفية المواقع',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.right,
                   ),
                   const SizedBox(height: 16),
                   
@@ -151,7 +260,10 @@ class _MapScreenState extends State<MapScreen> {
                       children: [
                         Icon(Icons.history, color: _getColorForType(LocationType.historical)),
                         const SizedBox(width: 8),
-                        const Text('Historical Places'),
+                        const Text(
+                          'المواقع التاريخية',
+                          textAlign: TextAlign.right,
+                        ),
                       ],
                     ),
                     value: locationProvider.showHistorical,
@@ -165,7 +277,10 @@ class _MapScreenState extends State<MapScreen> {
                       children: [
                         Icon(Icons.forest, color: _getColorForType(LocationType.forest)),
                         const SizedBox(width: 8),
-                        const Text('Natural Areas'),
+                        const Text(
+                          'المناطق الطبيعية',
+                          textAlign: TextAlign.right,
+                        ),
                       ],
                     ),
                     value: locationProvider.showForests,
@@ -179,7 +294,10 @@ class _MapScreenState extends State<MapScreen> {
                       children: [
                         Icon(Icons.location_city, color: _getColorForType(LocationType.city)),
                         const SizedBox(width: 8),
-                        const Text('Cities & Towns'),
+                        const Text(
+                          'المدن والبلدات',
+                          textAlign: TextAlign.right,
+                        ),
                       ],
                     ),
                     value: locationProvider.showCities,
@@ -193,7 +311,10 @@ class _MapScreenState extends State<MapScreen> {
                       children: [
                         Icon(Icons.place, color: _getColorForType(LocationType.other)),
                         const SizedBox(width: 8),
-                        const Text('Other Places'),
+                        const Text(
+                          'أماكن أخرى',
+                          textAlign: TextAlign.right,
+                        ),
                       ],
                     ),
                     value: locationProvider.showOther,
@@ -207,11 +328,11 @@ class _MapScreenState extends State<MapScreen> {
                     children: [
                       TextButton(
                         onPressed: () => locationProvider.setAllFilters(true),
-                        child: const Text('SHOW ALL'),
+                        child: const Text('عرض الكل'),
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('CLOSE'),
+                        child: const Text('إغلاق'),
                       ),
                     ],
                   ),

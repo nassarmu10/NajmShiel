@@ -11,7 +11,7 @@ class LocationDataProvider with ChangeNotifier {
   Map<String, List<Comment>> _locationComments = {};
   Map<String, VoteSummary> _locationVotes = {};
   String? _currentUserId; // For tracking the current user
-  bool _isLoading = true;
+  bool _isLoading = false;
   
   // Filter settings
   bool _showHistorical = true;
@@ -21,9 +21,16 @@ class LocationDataProvider with ChangeNotifier {
   
   LocationDataProvider() {
     // Load locations when provider is created
-    _loadLocations();
+    // _loadLocations();
   }
-  
+
+  // Call this method from your MapScreen's initState
+  Future<void> initialize() async {
+    if (_locations.isEmpty) {
+      await _loadLocations();
+    }
+  }
+
   // Getters
   List<Location> get locations => _locations;
   bool get isLoading => _isLoading;
@@ -34,9 +41,29 @@ class LocationDataProvider with ChangeNotifier {
   String? get currentUserId => _currentUserId;
   
   // Set current user
-  void setCurrentUserId(String userId) {
+  void setCurrentUserId(String userId, {bool notify = true}) {
     _currentUserId = userId;
-    notifyListeners();
+    
+    // Only call notifyListeners if notify is true
+    // This allows us to set the ID without rebuilding during initialization
+    if (notify) {
+      notifyListeners();
+    }
+  }
+
+  // Add this method to initialize without triggering rebuilds
+  Future<void> silentInitialize() async {
+    if (_locations.isEmpty) {
+      _isLoading = true;
+      
+      try {
+        _locations = await _firebaseService.getLocations();
+        _isLoading = false;
+      } catch (e) {
+        print('Error loading locations: $e');
+        _isLoading = false;
+      }
+    }
   }
   
   // Get filtered locations
