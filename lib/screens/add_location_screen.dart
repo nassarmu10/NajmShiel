@@ -37,9 +37,17 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Delay location fetching to avoid freezing
+    // Initialize with default location first 
+    _selectedLocation = countryCenter;
+    
+    // Delay the location request to ensure widget tree is fully built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _safeGetCurrentLocation();
+      // Further delay to ensure map controller is initialized
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (mounted) {
+          _safeGetCurrentLocation();
+        }
+      });
     });
   }
   
@@ -51,15 +59,19 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Handle app lifecycle changes
     if (state == AppLifecycleState.resumed && !_isMapInitialized) {
-      _safeGetCurrentLocation();
+      // Add a delay before trying to get location again
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _safeGetCurrentLocation();
+        }
+      });
     }
   }
   
   final LatLng countryCenter = const LatLng(31.5, 35.0);
 
-Future<void> _safeGetCurrentLocation() async {
+  Future<void> _safeGetCurrentLocation() async {
     if (!mounted) return;
     
     setState(() {
@@ -72,7 +84,10 @@ Future<void> _safeGetCurrentLocation() async {
       // Check if location services are enabled
       bool serviceEnabled;
       try {
-        serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        serviceEnabled = await Geolocator.isLocationServiceEnabled().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => false,
+        );
       } catch (e) {
         print('Error checking location services: $e');
         serviceEnabled = false;
@@ -98,9 +113,16 @@ Future<void> _safeGetCurrentLocation() async {
       // Request permission with timeout
       LocationPermission permission;
       try {
-        permission = await Geolocator.checkPermission();
+        permission = await Geolocator.checkPermission().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => LocationPermission.denied,
+        );
+        
         if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
+          permission = await Geolocator.requestPermission().timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => LocationPermission.denied,
+          );
         }
       } catch (e) {
         print('Error requesting location permission: $e');
@@ -146,21 +168,29 @@ Future<void> _safeGetCurrentLocation() async {
       
       if (!mounted) return;
       
+      // Update location in state
       setState(() {
         _selectedLocation = LatLng(position.latitude, position.longitude);
         _isLoadingLocation = false;
       });
       
-      // Wait a moment before moving map
+      // Wait for map controller to be ready before moving
       await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) {
+      
+      // Final mounted check before manipulating map
+      if (!mounted) return;
+      
+      // Use safe post-frame callback to move map
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
-          mapController.move(_selectedLocation!, 13.0);
+          if (mounted && mapController != null) {
+            mapController.move(_selectedLocation!, 13.0);
+          }
         } catch (e) {
           print('Error moving map: $e');
-          // Continue execution even if map movement fails
+          // Even if map movement fails, we've already set the location in state
         }
-      }
+      });
     } catch (e) {
       print('General error getting location: $e');
       if (!mounted) return;
@@ -255,8 +285,8 @@ Future<void> _safeGetCurrentLocation() async {
             const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(
-                  child: const Text(
+                const Expanded(
+                  child: Text(
                     'الصور (اختياري)',
                     style: TextStyle(
                       fontSize: 16,
@@ -409,14 +439,20 @@ Future<void> _safeGetCurrentLocation() async {
                             });
                           }
                         },
+                        interactionOptions: const InteractionOptions(
+                          enableMultiFingerGestureRace: true,
+                          flags: InteractiveFlag.all,
+                        ),
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          // Using a simpler tile source for better performance
+                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', 
+                          // Switch to a simpler tile source without retina mode
                           userAgentPackageName: 'com.example.najmshiel',
                           maxZoom: 18,
+                          retinaMode: MediaQuery.of(context).devicePixelRatio > 1.0,
                         ),
+                        
                         // Show marker if location selected
                         if (_selectedLocation != null)
                           MarkerLayer(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
@@ -15,20 +16,30 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   final MapController mapController = MapController();
-  
-  // Israel and Palestine region center and zoom
-  final LatLng countryCenter = const LatLng(31.5, 35.0); 
+
+  final LatLng defaultCenter = const LatLng(31.5, 35.0); 
   final double initialZoom = 8.0; 
+  final double userLocationZoom = 14.0; // Closer zoom when user location is available
   
   bool _isLoading = true;
   bool _hasError = false;
+  bool _isLocationReady = false;
+  LatLng? _userLocation;
   String _errorMessage = '';
   
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initializeDataSafely();
+    // Load data first, then get location
+    _initializeDataSafely().then((_) {
+      // Add a delay before getting location to ensure map is ready
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _getCurrentLocation();
+        }
+      });
+    });
   }
   
   @override
@@ -44,6 +55,133 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       final provider = Provider.of<LocationDataProvider>(context, listen: false);
       provider.refreshLocations();
+      
+      // Also refresh location if we don't have it yet
+      if (_userLocation == null) {
+        _getCurrentLocation();
+      }
+    }
+  }
+  
+  // Try to get user's current location
+  Future<void> _getCurrentLocation() async {
+    if (!mounted) return;
+    
+    try {
+      setState(() {
+        _isLocationReady = false;
+      });
+      
+      // Check if location services are enabled
+      bool serviceEnabled = false;
+      try {
+        serviceEnabled = await Geolocator.isLocationServiceEnabled().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => false,
+        );
+      } catch (e) {
+        print('Error checking location services: $e');
+        serviceEnabled = false;
+      }
+      
+      if (!serviceEnabled) {
+        if (mounted) {
+          setState(() {
+            _isLocationReady = true;
+          });
+        }
+        return;
+      }
+      
+      // Check permission
+      LocationPermission permission;
+      try {
+        permission = await Geolocator.checkPermission().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => LocationPermission.denied,
+        );
+        
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission().timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => LocationPermission.denied,
+          );
+        }
+      } catch (e) {
+        print('Error checking permissions: $e');
+        if (mounted) {
+          setState(() {
+            _isLocationReady = true;
+          });
+        }
+        return;
+      }
+      
+      if (permission == LocationPermission.denied || 
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() {
+            _isLocationReady = true;
+          });
+        }
+        return;
+      }
+      
+      // Get position
+      try {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5),
+        );
+        
+        if (!mounted) return;
+        
+        setState(() {
+          _userLocation = LatLng(position.latitude, position.longitude);
+          _isLocationReady = true;
+        });
+        
+        // Wait a moment to ensure the map is ready before moving
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        if (mounted && _userLocation != null) {
+          try {
+            // Use a safer way to move the map
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              try {
+                if (mapController.camera.zoom != 0) {
+                  mapController.move(_userLocation!, userLocationZoom);
+                } else {
+                  // If camera not ready, try again after a delay
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    if (mounted) {
+                      mapController.move(_userLocation!, userLocationZoom);
+                    }
+                  });
+                }
+              } catch (e) {
+                print('Error moving map camera: $e');
+              }
+            });
+          } catch (e) {
+            print('Error setting map position: $e');
+          }
+        }
+      } catch (e) {
+        print('Error getting position: $e');
+        if (mounted) {
+          setState(() {
+            _isLocationReady = true;
+          });
+        }
+      }
+    } catch (e) {
+      print('General error getting location: $e');
+      if (mounted) {
+        setState(() {
+          _isLocationReady = true;
+        });
+      }
     }
   }
   
@@ -81,8 +219,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       _isLoading = true;
       _hasError = false;
       _errorMessage = '';
+      _isLocationReady = false;
+      _userLocation = null;
     });
     _initializeDataSafely();
+    _getCurrentLocation();
   }
   
   @override
@@ -91,6 +232,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       appBar: AppBar(
         title: const Text('نجم سهيل'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.my_location),
+            onPressed: _getCurrentLocation,
+            tooltip: 'موقعي الحالي',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
@@ -165,54 +311,146 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       builder: (context, locationProvider, child) {
         final locations = locationProvider.filteredLocations;
         
-        return FlutterMap(
-          mapController: mapController,
-          options: MapOptions(
-            initialCenter: countryCenter,
-            initialZoom: initialZoom,
-            // Keep these minimal to avoid performance issues
-          ),
+        // For initial center, use user location if available, otherwise use default
+        final initialCenter = _userLocation ?? defaultCenter;
+        final initialMapZoom = _userLocation != null ? userLocationZoom : initialZoom;
+        
+        return Stack(
           children: [
-            // Base map tiles layer
-            TileLayer(
-              // urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
-              subdomains: const ['a', 'b', 'c'],
-              // Using a simpler tile source can improve performance
-              userAgentPackageName: 'com.example.najmshiel',
-              maxZoom: 18,
-            ),
-            
-            // Location markers
-            MarkerLayer(
-              markers: locations.map((location) => 
-                Marker(
-                  point: location.latLng,
-                  child: GestureDetector(
-                    onTap: () => _showLocationDetails(location.id),
-                    child: Container(
-                      padding: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(
-                        color: _getColorForType(location.type),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 2,
-                            spreadRadius: 0.5,
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        _getIconForType(location.type),
-                        color: Colors.white,
-                        size: 14,
+            Builder(
+              builder: (context) {
+                try {
+                  return FlutterMap(
+                    mapController: mapController,
+                    options: MapOptions(
+                      initialCenter: initialCenter,
+                      initialZoom: initialMapZoom,
+                      interactionOptions: const InteractionOptions(
+                        enableMultiFingerGestureRace: true,
+                        enableScrollWheel: true,
+                        flags: InteractiveFlag.all,
                       ),
                     ),
-                  ),
-                )
-              ).toList(),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+                        subdomains: const ['a', 'b', 'c'],
+                        userAgentPackageName: 'com.example.najmshiel',
+                        maxZoom: 18,
+                        retinaMode: RetinaMode.isHighDensity(context), // Fix the warning
+                      ),
+                      
+                      // User location marker (if available)
+                      if (_userLocation != null)
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _userLocation!,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.5),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                                child: const Icon(
+                                  Icons.my_location,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      
+                      // Location markers
+                      MarkerLayer(
+                        markers: locations.map((location) => 
+                          Marker(
+                            point: location.latLng,
+                            child: GestureDetector(
+                              onTap: () => _showLocationDetails(location.id),
+                              child: Container(
+                                padding: const EdgeInsets.all(1),
+                                decoration: BoxDecoration(
+                                  color: _getColorForType(location.type),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 2,
+                                      spreadRadius: 0.5,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  _getIconForType(location.type),
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                              ),
+                            ),
+                          )
+                        ).toList(),
+                      ),
+                    ],
+                  );
+                } catch (e) {
+                  print('Error building map: $e');
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        Text('خطأ في تحميل الخريطة: $e'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _retry,
+                          child: const Text('إعادة المحاولة'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              },
             ),
+            
+            // Loading indicator while waiting for location
+            if (!_isLocationReady)
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('جاري تحديد الموقع...'),
+                    ],
+                  ),
+                ),
+              ),
           ],
         );
       },

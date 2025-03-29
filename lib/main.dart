@@ -21,32 +21,28 @@ class LoadingApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       home: Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(
-                'assets/icon.png',
-                width: 120,
-                height: 120,
-                errorBuilder: (context, error, stackTrace) => const Icon(
-                  Icons.map,
-                  size: 120,
-                  color: Colors.blue,
-                ),
+              // Just use an icon instead of trying to load an asset
+              Icon(
+                Icons.map,
+                size: 120,
+                color: Colors.blue,
               ),
-              const SizedBox(height: 24),
-              const Text(
+              SizedBox(height: 24),
+              Text(
                 'نجم سهيل',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 24),
-              const CircularProgressIndicator(),
+              SizedBox(height: 24),
+              CircularProgressIndicator(),
             ],
           ),
         ),
