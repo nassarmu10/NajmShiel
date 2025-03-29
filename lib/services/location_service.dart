@@ -47,8 +47,8 @@ class FirebaseLocationService {
     }
   }
   
-  // Add a new location
-  Future<void> addLocation(Location location) async {
+  // Add a new location with username
+  Future<void> addLocation(Location location, String userId, String username) async {
     try {
       await _firestore.collection(locationsCollection).add({
         'name': location.name,
@@ -57,8 +57,15 @@ class FirebaseLocationService {
         'latitude': location.latitude,
         'longitude': location.longitude,
         'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': 'anonymous',
+        'createdBy': userId,
+        'creatorName': username,
         'images': location.images,
+      });
+      
+      // Update user document to add this location
+      await _firestore.collection('users').doc(userId).update({
+        'locations': FieldValue.arrayUnion([location.id]),
+        'lastActivity': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       print('Error adding location: $e');

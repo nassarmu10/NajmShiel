@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -651,6 +652,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
     });
 
     try {
+      // Get the location provider to access user data
+      final locationProvider = Provider.of<LocationDataProvider>(context, listen: false);
+      
+      // Get current username
+      final username = await locationProvider.getUserName();
+
       // 1. Upload images to Cloudinary (if any)
       List<String> imageUrls = [];
       if (_selectedImages.isNotEmpty) {
@@ -705,8 +712,28 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
       
       // Add to provider
       if (mounted) {
-        await Provider.of<LocationDataProvider>(context, listen: false)
-          .addLocation(newLocation);
+        // Update Firestore users collection to add this location to the user's profile
+        if (locationProvider.currentUserId != null) {
+          await FirebaseFirestore.instance.collection('users').doc(locationProvider.currentUserId).update({
+            'locations': FieldValue.arrayUnion([newLocation.id]),
+            'lastActivity': FieldValue.serverTimestamp(),
+          });
+        }
+
+        // Save the username as the creator in Firestore
+        await FirebaseFirestore.instance.collection('locations').add({
+          'name': _name,
+          'description': _description,
+          'type': _selectedType.toString(),
+          'latitude': _selectedLocation!.latitude,
+          'longitude': _selectedLocation!.longitude,
+          'createdAt': FieldValue.serverTimestamp(),
+          'createdBy': locationProvider.currentUserId,
+          'creatorName': username,
+          'images': imageUrls,
+        });
+        
+        await locationProvider.refreshLocations();
       }
 
       // 4. Success handling

@@ -1,11 +1,16 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:map_explorer/screens/location_details_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/location_data_provider.dart';
 import 'screens/map_screen.dart';
 import 'screens/add_location_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/profile_screen.dart';
+import 'services/auth_service.dart';
+import 'logger.dart';
 
 void main() {
   // Show a loading screen immediately
@@ -60,24 +65,33 @@ Future<void> initializeApp() async {
     // Initialize Firebase
     await Firebase.initializeApp();
     
+    // Create auth service
+    final authService = AuthService();
+    
     // Replace loading app with the real app
-    runApp(const MyApp());
+    runApp(MyApp(authService: authService));
   } catch (e) {
     // Show error screen if initialization fails
-    print('Error initializing app: $e');
+    logger.e('Error initializing app: $e');
     runApp(ErrorApp(error: e.toString()));
   }
 }
 
 // The main app
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  final AuthService authService;
+  
+  const MyApp({Key? key, required this.authService}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      // Create provider without loading data immediately
-      create: (context) => LocationDataProvider(),
+    return MultiProvider(
+      providers: [
+        // Create provider without loading data immediately
+        ChangeNotifierProvider(create: (context) => LocationDataProvider()),
+        // Add auth service provider
+        Provider<AuthService>.value(value: authService),
+      ],
       child: MaterialApp(
         title: 'نجم سهيل',
         debugShowCheckedModeBanner: false,
@@ -86,9 +100,8 @@ class MyApp extends StatelessWidget {
           visualDensity: VisualDensity.adaptivePlatformDensity,
           useMaterial3: true,
         ),
-        initialRoute: '/',
+        home: AuthWrapper(),
         routes: {
-          '/': (context) => const MapScreen(),
           '/add_location': (context) => const AddLocationScreen(),
         },
         onGenerateRoute: (settings) {
@@ -101,6 +114,48 @@ class MyApp extends StatelessWidget {
           return null;
         },
       ),
+    );
+  }
+}
+
+// Auth wrapper to handle authentication state
+class AuthWrapper extends StatefulWidget {
+  @override
+  _AuthWrapperState createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  @override
+  Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    
+    return StreamBuilder<User?>(
+      stream: authService.authStateChanges,
+      builder: (context, snapshot) {
+        // Handle loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        
+        // If user is logged in
+        if (snapshot.hasData && snapshot.data != null) {
+          final user = snapshot.data!;
+          
+          // Update the user ID in the provider after the build is complete
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final locationProvider = Provider.of<LocationDataProvider>(context, listen: false);
+            locationProvider.setCurrentUserId(user.uid);
+          });
+          
+          // Return the map screen
+          return const MapScreen();
+        }
+        
+        // If not logged in, show login screen
+        return const LoginScreen();
+      },
     );
   }
 }

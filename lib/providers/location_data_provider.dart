@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:map_explorer/models/location.dart';
 import 'package:map_explorer/models/comment.dart';
@@ -11,6 +13,8 @@ class LocationDataProvider with ChangeNotifier {
   Map<String, List<Comment>> _locationComments = {};
   Map<String, VoteSummary> _locationVotes = {};
   String? _currentUserId; // For tracking the current user
+  // User's name cache
+  String? _userName;
   bool _isLoading = false;
   
   // Filter settings
@@ -81,7 +85,7 @@ class LocationDataProvider with ChangeNotifier {
       }
     }).toList();
   }
-  
+
   // Load locations from Firebase
   Future<void> _loadLocations() async {
     _isLoading = true;
@@ -97,6 +101,77 @@ class LocationDataProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // Get current user name
+  Future<String> getUserName() async {
+    // Return cached name if available
+    if (_userName != null) {
+      return _userName!;
+    }
+    
+    if (_currentUserId == null) {
+      return 'مستخدم';
+    }
+    
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUserId)
+          .get();
+      
+      if (doc.exists && doc.data()?['name'] != null) {
+        _userName = doc.data()!['name'] as String;
+        return _userName!;
+      }
+      
+      // Fallback to Firebase Auth display name
+      final user = FirebaseAuth.instance.currentUser;
+      if (user?.displayName != null) {
+        _userName = user!.displayName!;
+        return _userName!;
+      }
+      
+      return 'مستخدم';
+    } catch (e) {
+      print('Error getting user name: $e');
+      return 'مستخدم';
+    }
+  }
+
+  // Set user name (cache it and update in provider)
+  Future<void> setUserName(String name) async {
+    if (_currentUserId == null) return;
+    
+    _userName = name;
+    
+    try {
+      // Update in Firebase Auth
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await user.updateDisplayName(name);
+      }
+      
+      // Update in Firestore
+      await FirebaseFirestore.instance.collection('users').doc(_currentUserId!).update({
+        'name': name,
+        'lastUpdate': FieldValue.serverTimestamp(),
+      });
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error setting user name: $e');
+    }
+  }
+
+  // Check if user is authenticated
+  bool get isAuthenticated => _currentUserId != null;
+
+  // Clear user data (for logout)
+  void clearUserData() {
+    _currentUserId = null;
+    _userName = null;
+    notifyListeners();
+  }
   
   Future<void> refreshLocations() async {
     await _loadLocations();
@@ -105,7 +180,17 @@ class LocationDataProvider with ChangeNotifier {
   // Add a new location
   Future<void> addLocation(Location location) async {
     try {
-      await _firebaseService.addLocation(location);
+      // Get current username
+      final String username = await getUserName();
+      
+      if (_currentUserId != null) {
+        // Use the service to add the location with user info
+        await _firebaseService.addLocation(location, _currentUserId!, username);
+      } else {
+        // Fallback if no user ID (shouldn't happen with auth flow)
+        await _firebaseService.addLocation(location, 'anonymous', username);
+      }
+      
       // Reload to get the newly added location
       await _loadLocations();
     } catch (e) {

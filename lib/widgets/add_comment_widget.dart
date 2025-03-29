@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -25,6 +27,32 @@ class _AddCommentWidgetState extends State<AddCommentWidget> {
   final TextEditingController _nameController = TextEditingController();
   XFile? _selectedImage;
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Get the current username to pre-fill the name field
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUsername();
+    });
+  }
+
+  Future<void> _loadUsername() async {
+    try {
+      final locationProvider = Provider.of<LocationDataProvider>(context, listen: false);
+      final username = await locationProvider.getUserName();
+      
+      if (mounted && username != 'مستخدم') {
+        setState(() {
+          _nameController.text = username;
+        });
+      }
+    } catch (e) {
+      // Silent failure
+      print('Error loading username: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -87,14 +115,14 @@ class _AddCommentWidgetState extends State<AddCommentWidget> {
     // Validate input
     if (_commentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a comment')),
+        const SnackBar(content: Text('الرجاء إدخال تعليق')),
       );
       return;
     }
 
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your name')),
+        const SnackBar(content: Text('الرجاء إدخال اسمك')),
       );
       return;
     }
@@ -105,6 +133,18 @@ class _AddCommentWidgetState extends State<AddCommentWidget> {
 
     try {
       final locationProvider = Provider.of<LocationDataProvider>(context, listen: false);
+      
+      // If the name has changed, update it in the provider
+      final currentUsername = await locationProvider.getUserName();
+      if (currentUsername != _nameController.text.trim() && locationProvider.currentUserId != null) {
+        await locationProvider.setUserName(_nameController.text.trim());
+        
+        // Update in Firebase Auth
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await user.updateDisplayName(_nameController.text.trim());
+        }
+      }
       
       // Upload image to Cloudinary if selected
       String? imageUrl;
@@ -139,25 +179,33 @@ class _AddCommentWidgetState extends State<AddCommentWidget> {
       // Add comment to database
       await locationProvider.addComment(comment);
       
+      // Update user activity in Firestore
+      if (locationProvider.currentUserId != null) {
+        await FirebaseFirestore.instance.collection('users').doc(locationProvider.currentUserId).update({
+          'lastActivity': FieldValue.serverTimestamp(),
+          'comments': FieldValue.arrayUnion([comment.id]),
+        });
+      }
+      
       // Clear form
       _commentController.clear();
       setState(() {
         _selectedImage = null;
       });
-      
+
       // Notify parent
       widget.onCommentAdded();
-      
+
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Comment added successfully!'),
+          content: Text('تم إضافة التعليق بنجاح!'),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding comment: $e')),
+        SnackBar(content: Text('خطأ في إضافة التعليق: $e')),
       );
     } finally {
       if (mounted) {
