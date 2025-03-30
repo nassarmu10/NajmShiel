@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:map_explorer/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:cloudinary_public/cloudinary_public.dart';
 import '../models/location.dart';
@@ -343,7 +344,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
                           top: 0,
                           right: 8,
                           child: Container(
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: Colors.red,
                               shape: BoxShape.circle,
                             ),
@@ -708,41 +709,18 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
         longitude: _selectedLocation!.longitude,
         createdAt: DateTime.now(),
         images: imageUrls, // Cloudinary URLs
+        createdBy: locationProvider.currentUserId,
+        creatorName: username,
       );
       
       // Add to provider
       if (mounted) {
-        // Update Firestore users collection to add this location to the user's profile
-        if (locationProvider.currentUserId != null) {
-          await FirebaseFirestore.instance.collection('users').doc(locationProvider.currentUserId).update({
-            'locations': FieldValue.arrayUnion([newLocation.id]),
-            'lastActivity': FieldValue.serverTimestamp(),
-          });
-        }
-
-        // Save the username as the creator in Firestore
-        await FirebaseFirestore.instance.collection('locations').add({
-          'name': _name,
-          'description': _description,
-          'type': _selectedType.toString(),
-          'latitude': _selectedLocation!.latitude,
-          'longitude': _selectedLocation!.longitude,
-          'createdAt': FieldValue.serverTimestamp(),
-          'createdBy': locationProvider.currentUserId,
-          'creatorName': username,
-          'images': imageUrls,
-        });
-        
-        await locationProvider.refreshLocations();
-      }
-
-      // 4. Success handling
-      if (mounted) {
-        // Hide loading indicator
+        // We're now using the enhanced model with GeoPoint
+        await locationProvider.addLocation(newLocation);
+        // 4. Success handling
         setState(() {
           _isUploadingImages = false;
         });
-      
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -759,7 +737,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
       }
     } catch (e) {
       // 5. Error handling
-      print('Error submitting location: $e');
+      logger.e('Error submitting location: $e');
       
       if (mounted) {
         // Hide loading indicator

@@ -17,6 +17,8 @@ class Location {
   final double longitude;
   final DateTime createdAt;
   final List<String> images;
+  final String? createdBy;
+  final String? creatorName;
 
   Location({
     required this.id,
@@ -27,10 +29,15 @@ class Location {
     required this.longitude,
     required this.createdAt,
     this.images = const [],
+    this.createdBy,
+    this.creatorName,
   });
 
   // Convenience getter for LatLng
   LatLng get latLng => LatLng(latitude, longitude);
+  
+  // Convenience getter for GeoPoint
+  GeoPoint get geoPoint => GeoPoint(latitude, longitude);
 
   // Display name for the type
   String get typeDisplayName {
@@ -68,10 +75,26 @@ class Location {
     } else {
       createdAtDate = DateTime.now();
     }
+    
     // Extract image URLs from Firestore
     List<String> images = [];
     if (data['images'] != null) {
       images = List<String>.from(data['images']);
+    }
+
+    // Handle GeoPoint data
+    double latitude;
+    double longitude;
+    
+    if (data['location'] is GeoPoint) {
+      // If stored as a GeoPoint
+      GeoPoint geoPoint = data['location'] as GeoPoint;
+      latitude = geoPoint.latitude;
+      longitude = geoPoint.longitude;
+    } else {
+      // Fallback to separate latitude/longitude fields
+      latitude = data['latitude'] ?? 0.0;
+      longitude = data['longitude'] ?? 0.0;
     }
 
     return Location(
@@ -79,10 +102,26 @@ class Location {
       name: data['name'] ?? 'Unnamed Location',
       description: data['description'] ?? '',
       type: locationType,
-      latitude: data['latitude'] ?? 0.0,
-      longitude: data['longitude'] ?? 0.0,
+      latitude: latitude,
+      longitude: longitude,
       createdAt: createdAtDate,
       images: images,
+      createdBy: data['createdBy'],
+      creatorName: data['creatorName'],
     );
+  }
+  
+  // Convert to Map for Firestore
+  Map<String, dynamic> toFirestore() {
+    return {
+      'name': name,
+      'description': description,
+      'type': type.toString(),
+      'location': GeoPoint(latitude, longitude), // Store as GeoPoint
+      'createdAt': FieldValue.serverTimestamp(),
+      'images': images,
+      'createdBy': createdBy,
+      'creatorName': creatorName,
+    };
   }
 }

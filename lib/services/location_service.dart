@@ -1,3 +1,4 @@
+import 'package:map_explorer/logger.dart';
 import 'package:map_explorer/models/location.dart';
 import 'package:map_explorer/models/comment.dart';
 import 'package:map_explorer/models/vote.dart';
@@ -42,7 +43,7 @@ class FirebaseLocationService {
         return Location.fromFirestore(doc);
       }).toList();
     } catch (e) {
-      print('Error fetching locations: $e');
+      logger.e('Error fetching locations: $e');
       return [];
     }
   }
@@ -50,26 +51,32 @@ class FirebaseLocationService {
   // Add a new location with username
   Future<void> addLocation(Location location, String userId, String username) async {
     try {
-      await _firestore.collection(locationsCollection).add({
+      final locationData = {
         'name': location.name,
         'description': location.description,
         'type': location.type.toString(),
-        'latitude': location.latitude,
-        'longitude': location.longitude,
+        'location': GeoPoint(location.latitude, location.longitude), // Store as GeoPoint
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': userId,
         'creatorName': username,
         'images': location.images,
-      });
+      };
+      
+      // Add legacy fields for backward compatibility if needed
+      // Comment these out if you're sure all code uses the GeoPoint field
+      locationData['latitude'] = location.latitude;
+      locationData['longitude'] = location.longitude;
+      
+      final docRef = await _firestore.collection(locationsCollection).add(locationData);
       
       // Update user document to add this location
       await _firestore.collection('users').doc(userId).update({
-        'locations': FieldValue.arrayUnion([location.id]),
+        'locations': FieldValue.arrayUnion([docRef.id]),
         'lastActivity': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error adding location: $e');
-      throw e;
+      logger.e('Error adding location: $e');
+      rethrow;
     }
   }
   
@@ -82,7 +89,7 @@ class FirebaseLocationService {
       }
       return null;
     } catch (e) {
-      print('Error getting location: $e');
+      logger.e('Error getting location: $e');
       return null;
     }
   }
