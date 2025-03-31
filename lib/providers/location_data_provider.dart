@@ -8,7 +8,7 @@ import 'package:map_explorer/services/location_service.dart';
 
 class LocationDataProvider with ChangeNotifier {
   final FirebaseLocationService _firebaseService = FirebaseLocationService();
-  
+
   List<Location> _locations = [];
   Map<String, List<Comment>> _locationComments = {};
   Map<String, VoteSummary> _locationVotes = {};
@@ -16,13 +16,13 @@ class LocationDataProvider with ChangeNotifier {
   // User's name cache
   String? _userName;
   bool _isLoading = false;
-  
+
   // Filter settings
   bool _showHistorical = true;
   bool _showForests = true;
   bool _showCities = true;
   bool _showOther = true;
-  
+
   LocationDataProvider() {
     // Load locations when provider is created
     // _loadLocations();
@@ -43,11 +43,11 @@ class LocationDataProvider with ChangeNotifier {
   bool get showCities => _showCities;
   bool get showOther => _showOther;
   String? get currentUserId => _currentUserId;
-  
+
   // Set current user
   void setCurrentUserId(String userId, {bool notify = true}) {
     _currentUserId = userId;
-    
+
     // Only call notifyListeners if notify is true
     // This allows us to set the ID without rebuilding during initialization
     if (notify) {
@@ -59,7 +59,7 @@ class LocationDataProvider with ChangeNotifier {
   Future<void> silentInitialize() async {
     if (_locations.isEmpty) {
       _isLoading = true;
-      
+
       try {
         _locations = await _firebaseService.getLocations();
         _isLoading = false;
@@ -69,7 +69,7 @@ class LocationDataProvider with ChangeNotifier {
       }
     }
   }
-  
+
   // Get filtered locations
   List<Location> get filteredLocations {
     return _locations.where((location) {
@@ -90,7 +90,7 @@ class LocationDataProvider with ChangeNotifier {
   Future<void> _loadLocations() async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       _locations = await _firebaseService.getLocations();
       _isLoading = false;
@@ -108,29 +108,29 @@ class LocationDataProvider with ChangeNotifier {
     if (_userName != null) {
       return _userName!;
     }
-    
+
     if (_currentUserId == null) {
       return 'مستخدم';
     }
-    
+
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(_currentUserId)
           .get();
-      
+
       if (doc.exists && doc.data()?['name'] != null) {
         _userName = doc.data()!['name'] as String;
         return _userName!;
       }
-      
+
       // Fallback to Firebase Auth display name
       final user = FirebaseAuth.instance.currentUser;
       if (user?.displayName != null) {
         _userName = user!.displayName!;
         return _userName!;
       }
-      
+
       return 'مستخدم';
     } catch (e) {
       print('Error getting user name: $e');
@@ -141,22 +141,25 @@ class LocationDataProvider with ChangeNotifier {
   // Set user name (cache it and update in provider)
   Future<void> setUserName(String name) async {
     if (_currentUserId == null) return;
-    
+
     _userName = name;
-    
+
     try {
       // Update in Firebase Auth
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await user.updateDisplayName(name);
       }
-      
+
       // Update in Firestore
-      await FirebaseFirestore.instance.collection('users').doc(_currentUserId!).update({
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUserId!)
+          .update({
         'name': name,
         'lastUpdate': FieldValue.serverTimestamp(),
       });
-      
+
       notifyListeners();
     } catch (e) {
       print('Error setting user name: $e');
@@ -172,17 +175,17 @@ class LocationDataProvider with ChangeNotifier {
     _userName = null;
     notifyListeners();
   }
-  
+
   Future<void> refreshLocations() async {
     await _loadLocations();
   }
-  
+
   // Add a new location
   Future<void> addLocation(Location location) async {
     try {
       // Get current username
       final String username = await getUserName();
-      
+
       if (_currentUserId != null) {
         // Use the service to add the location with user info
         await _firebaseService.addLocation(location, _currentUserId!, username);
@@ -190,7 +193,7 @@ class LocationDataProvider with ChangeNotifier {
         // Fallback if no user ID (shouldn't happen with auth flow)
         await _firebaseService.addLocation(location, 'anonymous', username);
       }
-      
+
       // Reload to get the newly added location
       await _loadLocations();
     } catch (e) {
@@ -198,28 +201,28 @@ class LocationDataProvider with ChangeNotifier {
       rethrow;
     }
   }
-  
+
   // Toggle filters
   void toggleHistorical() {
     _showHistorical = !_showHistorical;
     notifyListeners();
   }
-  
+
   void toggleForests() {
     _showForests = !_showForests;
     notifyListeners();
   }
-  
+
   void toggleCities() {
     _showCities = !_showCities;
     notifyListeners();
   }
-  
+
   void toggleOther() {
     _showOther = !_showOther;
     notifyListeners();
   }
-  
+
   void setAllFilters(bool value) {
     _showHistorical = value;
     _showForests = value;
@@ -237,7 +240,8 @@ class LocationDataProvider with ChangeNotifier {
     }
 
     try {
-      final comments = await _firebaseService.getCommentsForLocation(locationId);
+      final comments =
+          await _firebaseService.getCommentsForLocation(locationId);
       _locationComments[locationId] = comments;
       notifyListeners();
       return comments;
@@ -251,7 +255,7 @@ class LocationDataProvider with ChangeNotifier {
   Future<void> addComment(Comment comment) async {
     try {
       await _firebaseService.addComment(comment);
-      
+
       // Update local cache
       if (_locationComments.containsKey(comment.locationId)) {
         _locationComments[comment.locationId]!.insert(0, comment);
@@ -300,9 +304,11 @@ class LocationDataProvider with ChangeNotifier {
 
     try {
       await _firebaseService.addOrUpdateVote(vote);
-      
+
       // Update local cache
-      await getVoteSummary(locationId); // Refresh vote count
+      final voteSummary = await _firebaseService.getVoteSummary(locationId);
+      _locationVotes[locationId] = voteSummary;
+      notifyListeners();
     } catch (e) {
       print('Error adding vote: $e');
       rethrow;
@@ -317,9 +323,11 @@ class LocationDataProvider with ChangeNotifier {
 
     try {
       await _firebaseService.removeVote(locationId, _currentUserId!);
-      
+
       // Update local cache
-      await getVoteSummary(locationId); // Refresh vote count
+      final voteSummary = await _firebaseService.getVoteSummary(locationId);
+      _locationVotes[locationId] = voteSummary;
+      notifyListeners();
     } catch (e) {
       print('Error removing vote: $e');
       rethrow;
@@ -333,7 +341,10 @@ class LocationDataProvider with ChangeNotifier {
     }
 
     try {
-      return await _firebaseService.getUserVote(locationId, _currentUserId!);
+      final userVote =
+          await _firebaseService.getUserVote(locationId, _currentUserId!);
+      notifyListeners(); // Ensure UI updates if needed
+      return userVote;
     } catch (e) {
       print('Error getting user vote: $e');
       return null;

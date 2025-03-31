@@ -5,7 +5,7 @@ import 'package:map_explorer/providers/location_data_provider.dart';
 
 class VoteWidget extends StatefulWidget {
   final String locationId;
-  
+
   const VoteWidget({
     Key? key,
     required this.locationId,
@@ -19,7 +19,7 @@ class _VoteWidgetState extends State<VoteWidget> {
   bool _isLoading = true;
   VoteSummary _voteSummary = VoteSummary(likes: 0, dislikes: 0);
   VoteType? _userVote;
-  
+
   @override
   void initState() {
     super.initState();
@@ -30,23 +30,32 @@ class _VoteWidgetState extends State<VoteWidget> {
     setState(() {
       _isLoading = true;
     });
-    
-    final locationProvider = Provider.of<LocationDataProvider>(context, listen: false);
-    
-    // Get vote summary and user vote in parallel
-    final summaryFuture = locationProvider.getVoteSummary(widget.locationId);
-    final userVoteFuture = locationProvider.getUserVote(widget.locationId);
-    
-    // Wait for both to complete
-    final summary = await summaryFuture;
-    final userVote = await userVoteFuture;
-    
-    if (mounted) {
-      setState(() {
-        _voteSummary = summary;
-        _userVote = userVote;
-        _isLoading = false;
-      });
+
+    final locationProvider =
+        Provider.of<LocationDataProvider>(context, listen: false);
+
+    try {
+      // Run both futures in parallel and wait for both to complete
+      final results = await Future.wait([
+        locationProvider.getVoteSummary(widget.locationId),
+        locationProvider.getUserVote(widget.locationId),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _voteSummary = results[0] as VoteSummary;
+          _userVote = results[1] as VoteType?;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      // Handle error (e.g., show a snackbar or log the error)
+      print('Error loading votes: $e');
     }
   }
 
@@ -56,18 +65,23 @@ class _VoteWidgetState extends State<VoteWidget> {
       await _removeVote();
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      final locationProvider = Provider.of<LocationDataProvider>(context, listen: false);
-      
+      final locationProvider =
+          Provider.of<LocationDataProvider>(context, listen: false);
+
       await locationProvider.addOrUpdateVote(widget.locationId, voteType);
-      
-      // Refresh votes
-      await _loadVotes();
+
+      // Update local state immediately
+      _voteSummary = await locationProvider.getVoteSummary(widget.locationId);
+      _userVote = voteType;
+      setState(() {
+        _isLoading = false;
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -82,14 +96,19 @@ class _VoteWidgetState extends State<VoteWidget> {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      final locationProvider = Provider.of<LocationDataProvider>(context, listen: false);
-      
+      final locationProvider =
+          Provider.of<LocationDataProvider>(context, listen: false);
+
       await locationProvider.removeVote(widget.locationId);
-      
-      // Refresh votes
-      await _loadVotes();
+
+      // Update local state immediately
+      _voteSummary = await locationProvider.getVoteSummary(widget.locationId);
+      _userVote = null;
+      setState(() {
+        _isLoading = false;
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -99,7 +118,7 @@ class _VoteWidgetState extends State<VoteWidget> {
       });
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -202,7 +221,7 @@ class _VoteWidgetState extends State<VoteWidget> {
                       ),
                     ],
                   ),
-                  
+
                   // Vote percentage indicator (only show if there are votes)
                   if (_voteSummary.total > 0)
                     Padding(
