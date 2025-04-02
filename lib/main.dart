@@ -45,6 +45,7 @@ class LoadingApp extends StatelessWidget {
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
+                textAlign: TextAlign.center,
               ),
               SizedBox(height: 24),
               CircularProgressIndicator(),
@@ -60,14 +61,11 @@ class LoadingApp extends StatelessWidget {
 Future<void> initializeApp() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  
   try {
     // Initialize Firebase
     await Firebase.initializeApp();
-    
     // Create auth service
     final authService = AuthService();
-    
     // Replace loading app with the real app
     runApp(MyApp(authService: authService));
   } catch (e) {
@@ -80,7 +78,6 @@ Future<void> initializeApp() async {
 // The main app
 class MyApp extends StatelessWidget {
   final AuthService authService;
-  
   const MyApp({Key? key, required this.authService}) : super(key: key);
 
   @override
@@ -138,21 +135,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        
         // If user is logged in
         if (snapshot.hasData && snapshot.data != null) {
           final user = snapshot.data!;
-          
           // Update the user ID in the provider after the build is complete
           WidgetsBinding.instance.addPostFrameCallback((_) {
             final locationProvider = Provider.of<LocationDataProvider>(context, listen: false);
             locationProvider.setCurrentUserId(user.uid);
           });
-          
           // Return the map screen
           return const MapScreen();
         }
-        
         // If not logged in, show login screen
         return const LoginScreen();
       },

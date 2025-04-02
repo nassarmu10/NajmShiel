@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:map_explorer/screens/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -137,12 +138,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              
               try {
                 final authService = Provider.of<AuthService>(context, listen: false);
+                final provider = Provider.of<LocationDataProvider>(context, listen: false);
+                
+                // Clear provider data first
+                provider.clearUserData();
+                
+                // Perform the sign out
                 await authService.signOut();
                 
-                // Will automatically redirect to login screen via AuthWrapper
+                // Use direct navigation to go back to login screen
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    (route) => false, // Remove all previous routes from stack
+                  );
+                }
               } catch (e) {
                 logger.e('Error signing out: $e');
                 if (mounted) {

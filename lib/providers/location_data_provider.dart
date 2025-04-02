@@ -10,8 +10,8 @@ class LocationDataProvider with ChangeNotifier {
   final FirebaseLocationService _firebaseService = FirebaseLocationService();
 
   List<Location> _locations = [];
-  Map<String, List<Comment>> _locationComments = {};
-  Map<String, VoteSummary> _locationVotes = {};
+  final Map<String, List<Comment>> _locationComments = {};
+  final Map<String, VoteSummary> _locationVotes = {};
   String? _currentUserId; // For tracking the current user
   // User's name cache
   String? _userName;

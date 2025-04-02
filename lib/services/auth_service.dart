@@ -27,6 +27,7 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
+      logger.i("User signed out successfully");
     } catch (e) {
       logger.e('Error signing out: $e');
       rethrow;

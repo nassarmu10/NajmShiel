@@ -3,12 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:map_explorer/screens/map_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:map_explorer/providers/location_data_provider.dart';
 import 'package:map_explorer/logger.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -27,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     final name = _nameController.text.trim();
-    
     // Validate name
     if (name.isEmpty) {
       setState(() {
@@ -35,24 +35,20 @@ class _LoginScreenState extends State<LoginScreen> {
       });
       return;
     }
-    
     setState(() {
       _isLoading = true;
       _errorMessage = '';
     });
-    
+
     try {
       // Sign in anonymously
       final userCredential = await FirebaseAuth.instance.signInAnonymously();
       final user = userCredential.user;
-      
       if (user != null) {
         // Generate a unique username if needed
         final username = name.isNotEmpty ? name : 'مستخدم_${user.uid.substring(0, 5)}';
-        
         // Set the display name
         await user.updateDisplayName(username);
-        
         // Store user data in Firestore with comprehensive fields
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'name': username,
@@ -70,19 +66,22 @@ class _LoginScreenState extends State<LoginScreen> {
           'appVersion': '1.0.0',  // Track which app version they're using
           'deviceInfo': Platform.isAndroid ? 'Android' : Platform.isIOS ? 'iOS' : 'Other',
         }, SetOptions(merge: true));
-        
+
         // Update provider with user ID
         if (mounted) {
           // We use Future.microtask to ensure we're not updating state during build
           Future.microtask(() {
             final provider = Provider.of<LocationDataProvider>(context, listen: false);
             provider.setCurrentUserId(user.uid);
-            
             // Set the username in the provider
             provider.setUserName(username);
-            
             // Navigate to map screen
-            Navigator.pushReplacementNamed(context, '/');
+            // Navigator.pushReplacementNamed(context, '/');
+            // Direct navigation approach
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const MapScreen()),
+              (route) => false,
+            );
           });
         }
       }
@@ -118,9 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 size: 80,
                 color: Colors.blue,
               ),
-              
               const SizedBox(height: 24),
-              
               // App title
               const Text(
                 'نجم سهيل',
@@ -130,9 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
               const SizedBox(height: 8),
-              
               // App description
               const Text(
                 'استكشف المواقع وشارك تجاربك',
@@ -142,9 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
               const SizedBox(height: 48),
-              
               // Name input field
               TextField(
                 controller: _nameController,
@@ -171,9 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.right,
                   ),
                 ),
-              
               const SizedBox(height: 24),
-              
               // Login button
               ElevatedButton(
                 onPressed: _isLoading ? null : _login,
@@ -206,9 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(fontSize: 18),
                       ),
               ),
-              
               const SizedBox(height: 16),
-              
               // Skip for now button
               TextButton(
                 onPressed: _isLoading
