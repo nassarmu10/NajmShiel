@@ -12,13 +12,13 @@ import '../widgets/vote_widget.dart';
 class LocationDetailsScreen extends StatefulWidget {
   final String locationId;
   
-  const LocationDetailsScreen({Key? key, required this.locationId}) : super(key: key);
+  const LocationDetailsScreen({super.key, required this.locationId});
   
   @override
-  _LocationDetailsScreenState createState() => _LocationDetailsScreenState();
+  LocationDetailsScreenState createState() => LocationDetailsScreenState();
 }
 
-class _LocationDetailsScreenState extends State<LocationDetailsScreen> {
+class LocationDetailsScreenState extends State<LocationDetailsScreen> {
   bool _showAddComment = false;
   
   @override
@@ -239,6 +239,7 @@ class _LocationDetailsScreenState extends State<LocationDetailsScreen> {
                                 additionalOptions: const {
                                   'attribution': '© OpenStreetMap contributors',
                                 },
+                                retinaMode: RetinaMode.isHighDensity(context),
                               ),
                               MarkerLayer(
                                 markers: [

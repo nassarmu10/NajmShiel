@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:map_explorer/logger.dart';
 import 'package:map_explorer/screens/profile_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -81,10 +82,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           onTimeout: () => false,
         );
       } catch (e) {
-        print('Error checking location services: $e');
+        logger.e('Error checking location services: $e');
         serviceEnabled = false;
       }
-      
       if (!serviceEnabled) {
         if (mounted) {
           setState(() {
@@ -93,7 +93,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         }
         return;
       }
-      
       // Check permission
       LocationPermission permission;
       try {
@@ -109,7 +108,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           );
         }
       } catch (e) {
-        print('Error checking permissions: $e');
+        logger.e('Error checking permissions: $e');
         if (mounted) {
           setState(() {
             _isLocationReady = true;
@@ -161,15 +160,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   });
                 }
               } catch (e) {
-                print('Error moving map camera: $e');
+                logger.e('Error moving map camera: $e');
               }
             });
           } catch (e) {
-            print('Error setting map position: $e');
+            logger.e('Error setting map position: $e');
           }
         }
       } catch (e) {
-        print('Error getting position: $e');
+        logger.e('Error getting position: $e');
         if (mounted) {
           setState(() {
             _isLocationReady = true;
@@ -177,7 +176,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      print('General error getting location: $e');
+      logger.e('General error getting location: $e');
       if (mounted) {
         setState(() {
           _isLocationReady = true;
@@ -204,7 +203,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         });
       }
     } catch (e) {
-      print('Error initializing data: $e');
+      logger.e('Error initializing data: $e');
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -348,7 +347,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         subdomains: const ['a', 'b', 'c'],
                         userAgentPackageName: 'com.example.najmshiel',
                         maxZoom: 18,
-                        retinaMode: RetinaMode.isHighDensity(context), // Fix the warning
+                        retinaMode: RetinaMode.isHighDensity(context),
                       ),
                       
                       // User location marker (if available)
@@ -407,7 +406,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     ],
                   );
                 } catch (e) {
-                  print('Error building map: $e');
+                  logger.e('Error building map: $e');
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -445,7 +444,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
@@ -456,8 +455,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text('جاري تحديد الموقع...'),
+                      SizedBox(width: 8),
+                      Text('جاري تحديد الموقع...'),
                     ],
                   ),
                 ),

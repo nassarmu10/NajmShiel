@@ -10,7 +10,7 @@ class FirebaseLocationService {
   final String commentsCollection = 'comments';
   final String votesCollection = 'votes';
   
-  // Fetch all locations with filtering
+  // Optimized location fetching with Firebase compound queries
   Future<List<Location>> getLocations({
     bool includeHistorical = true,
     bool includeForests = true,
@@ -18,30 +18,54 @@ class FirebaseLocationService {
     bool includeOther = true,
   }) async {
     try {
-      // Start building the query
-      Query query = _firestore.collection(locationsCollection);
-      
-      // Apply type filters if needed
-      if (!(includeHistorical && includeForests && includeCities && includeOther)) {
-        List<String> typesToInclude = [];
-        
-        if (includeHistorical) typesToInclude.add(LocationType.historical.toString());
-        if (includeForests) typesToInclude.add(LocationType.forest.toString());
-        if (includeCities) typesToInclude.add(LocationType.city.toString());
-        if (includeOther) typesToInclude.add(LocationType.other.toString());
-        
-        if (typesToInclude.isNotEmpty) {
-          query = query.where('type', whereIn: typesToInclude);
-        }
+      // Check if we need to filter at all
+      if (includeHistorical && includeForests && includeCities && includeOther) {
+        // No filtering needed, get all locations
+        final snapshot = await _firestore.collection(locationsCollection).get();
+        return snapshot.docs.map((doc) => Location.fromFirestore(doc)).toList();
       }
       
-      // Get the documents
-      final snapshot = await query.get();
+      // Create a list of queries for each type that should be included
+      List<Query> queries = [];
       
-      // Convert to Location objects
-      return snapshot.docs.map((doc) {
-        return Location.fromFirestore(doc);
-      }).toList();
+      if (includeHistorical) {
+        queries.add(_firestore.collection(locationsCollection)
+            .where('type', isEqualTo: LocationType.historical.toString()));
+      }
+      
+      if (includeForests) {
+        queries.add(_firestore.collection(locationsCollection)
+            .where('type', isEqualTo: LocationType.forest.toString()));
+      }
+      
+      if (includeCities) {
+        queries.add(_firestore.collection(locationsCollection)
+            .where('type', isEqualTo: LocationType.city.toString()));
+      }
+      
+      if (includeOther) {
+        queries.add(_firestore.collection(locationsCollection)
+            .where('type', isEqualTo: LocationType.other.toString()));
+      }
+      
+      // If no types are selected, return empty list
+      if (queries.isEmpty) {
+        logger.w('No location types selected for filtering');
+        return [];
+      }
+      
+      // Execute all queries in parallel
+      final snapshots = await Future.wait(queries.map((query) => query.get()));
+      
+      // Combine results
+      List<Location> locations = [];
+      for (final snapshot in snapshots) {
+        locations.addAll(
+          snapshot.docs.map((doc) => Location.fromFirestore(doc)).toList()
+        );
+      }
+      
+      return locations;
     } catch (e) {
       logger.e('Error fetching locations: $e');
       return [];
@@ -101,7 +125,7 @@ class FirebaseLocationService {
     try {
       await _firestore.collection(commentsCollection).add(comment.toMap());
     } catch (e) {
-      print('Error adding comment: $e');
+      logger.e('Error adding comment: $e');
       throw e;
     }
   }
@@ -117,7 +141,7 @@ class FirebaseLocationService {
 
       return snapshot.docs.map((doc) => Comment.fromFirestore(doc)).toList();
     } catch (e) {
-      print('Error fetching comments: $e');
+      logger.e('Error fetching comments: $e');
       return [];
     }
   }
@@ -158,7 +182,7 @@ class FirebaseLocationService {
         await _firestore.collection(votesCollection).add(vote.toMap());
       }
     } catch (e) {
-      print('Error adding/updating vote: $e');
+      logger.e('Error adding/updating vote: $e');
       throw e;
     }
   }
@@ -177,7 +201,7 @@ class FirebaseLocationService {
         await _firestore.collection(votesCollection).doc(docId).delete();
       }
     } catch (e) {
-      print('Error removing vote: $e');
+      logger.e('Error removing vote: $e');
       throw e;
     }
   }
@@ -192,7 +216,6 @@ class FirebaseLocationService {
 
       int likes = 0;
       int dislikes = 0;
-
       for (var doc in snapshot.docs) {
         Map<String, dynamic> data = doc.data();
         String voteTypeStr = data['voteType'] ?? '';
@@ -203,10 +226,9 @@ class FirebaseLocationService {
           dislikes++;
         }
       }
-
       return VoteSummary(likes: likes, dislikes: dislikes);
     } catch (e) {
-      print('Error getting vote summary: $e');
+      logger.e('Error getting vote summary: $e');
       return VoteSummary(likes: 0, dislikes: 0);
     }
   }
@@ -235,7 +257,7 @@ class FirebaseLocationService {
       
       return null; // User hasn't voted
     } catch (e) {
-      print('Error getting user vote: $e');
+      logger.e('Error getting user vote: $e');
       return null;
     }
   }
@@ -260,7 +282,6 @@ class FirebaseLocationService {
           dislikes++;
         }
       }
-
       return VoteSummary(likes: likes, dislikes: dislikes);
     });
   }

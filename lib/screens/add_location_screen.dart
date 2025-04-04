@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -13,13 +12,13 @@ import '../models/location.dart';
 import '../providers/location_data_provider.dart';
 
 class AddLocationScreen extends StatefulWidget {
-  const AddLocationScreen({Key? key}) : super(key: key);
+  const AddLocationScreen({super.key});
 
   @override
-  _AddLocationScreenState createState() => _AddLocationScreenState();
+  AddLocationScreenState createState() => AddLocationScreenState();
 }
 
-class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindingObserver {
+class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final MapController mapController = MapController();
   
@@ -30,7 +29,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
   bool _isLoadingLocation = true;
   bool _editMapMode = false;
   // For image handling
-  List<XFile> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
   bool _isUploadingImages = false;
   bool _isMapInitialized = false;
   
@@ -91,7 +90,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
           onTimeout: () => false,
         );
       } catch (e) {
-        print('Error checking location services: $e');
+        logger.e('Error checking location services: $e');
         serviceEnabled = false;
       }
       
@@ -127,7 +126,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
           );
         }
       } catch (e) {
-        print('Error requesting location permission: $e');
+        logger.e('Error requesting location permission: $e');
         permission = LocationPermission.denied;
       }
       
@@ -153,11 +152,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
       Position position;
       try {
         position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          ),
         );
       } catch (e) {
-        print('Error getting current location: $e');
+        logger.e('Error getting current location: $e');
         if (!mounted) return;
         
         setState(() {
@@ -189,12 +190,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
             mapController.move(_selectedLocation!, 13.0);
           }
         } catch (e) {
-          print('Error moving map: $e');
+          logger.e('Error moving map: $e');
           // Even if map movement fails, we've already set the location in state
         }
       });
     } catch (e) {
-      print('General error getting location: $e');
+      logger.e('General error getting location: $e');
       if (!mounted) return;
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -221,7 +222,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
         });
       }
     } catch (e) {
-      print('Error picking images: $e');
+      logger.e('Error picking images: $e');
       if (!mounted) return;
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -246,7 +247,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
         });
       }
     } catch (e) {
-      print('Error taking photo: $e');
+      logger.e('Error taking photo: $e');
       if (!mounted) return;
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -448,13 +449,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', 
-                          // Switch to a simpler tile source without retina mode
+                          urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+                          subdomains: const ['a', 'b', 'c'],
                           userAgentPackageName: 'com.example.najmshiel',
                           maxZoom: 18,
-                          retinaMode: MediaQuery.of(context).devicePixelRatio > 1.0,
+                          retinaMode: RetinaMode.isHighDensity(context),
                         ),
-                        
+
                         // Show marker if location selected
                         if (_selectedLocation != null)
                           MarkerLayer(
@@ -677,7 +678,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
                 'جاري تحميل ${_selectedImages.length} صورة...',
                 textAlign: TextAlign.right,
               ),
-              duration: Duration(seconds: 2),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -717,23 +718,26 @@ class _AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindi
       if (mounted) {
         // We're now using the enhanced model with GeoPoint
         await locationProvider.addLocation(newLocation);
-        // 4. Success handling
-        setState(() {
-          _isUploadingImages = false;
-        });
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'تمت إضافة الموقع بنجاح!',
-              textAlign: TextAlign.right,
+
+        if (mounted) {
+          // 4. Success handling
+          setState(() {
+            _isUploadingImages = false;
+          });
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'تمت إضافة الموقع بنجاح!',
+                textAlign: TextAlign.right,
+              ),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
-      
-        // Return to map
-        Navigator.pop(context);
+          );
+        
+          // Return to map
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       // 5. Error handling

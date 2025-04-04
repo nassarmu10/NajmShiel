@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:map_explorer/logger.dart';
 import 'package:map_explorer/models/location.dart';
 import 'package:map_explorer/models/comment.dart';
 import 'package:map_explorer/models/vote.dart';
@@ -64,7 +65,7 @@ class LocationDataProvider with ChangeNotifier {
         _locations = await _firebaseService.getLocations();
         _isLoading = false;
       } catch (e) {
-        print('Error loading locations: $e');
+        logger.e('Error loading locations: $e');
         _isLoading = false;
       }
     }
@@ -90,13 +91,12 @@ class LocationDataProvider with ChangeNotifier {
   Future<void> _loadLocations() async {
     _isLoading = true;
     notifyListeners();
-
     try {
       _locations = await _firebaseService.getLocations();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      print('Error loading locations: $e');
+      logger.e('Error loading locations: $e');
       _isLoading = false;
       notifyListeners();
     }
@@ -108,11 +108,9 @@ class LocationDataProvider with ChangeNotifier {
     if (_userName != null) {
       return _userName!;
     }
-
     if (_currentUserId == null) {
       return 'مستخدم';
     }
-
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
@@ -133,7 +131,7 @@ class LocationDataProvider with ChangeNotifier {
 
       return 'مستخدم';
     } catch (e) {
-      print('Error getting user name: $e');
+      logger.e('Error getting user name: $e');
       return 'مستخدم';
     }
   }
@@ -150,7 +148,6 @@ class LocationDataProvider with ChangeNotifier {
       if (user != null) {
         await user.updateDisplayName(name);
       }
-
       // Update in Firestore
       await FirebaseFirestore.instance
           .collection('users')
@@ -162,13 +159,11 @@ class LocationDataProvider with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('Error setting user name: $e');
+      logger.e('Error setting user name: $e');
     }
   }
-
   // Check if user is authenticated
   bool get isAuthenticated => _currentUserId != null;
-
   // Clear user data (for logout)
   void clearUserData() {
     _currentUserId = null;
@@ -197,7 +192,7 @@ class LocationDataProvider with ChangeNotifier {
       // Reload to get the newly added location
       await _loadLocations();
     } catch (e) {
-      print('Error adding location: $e');
+      logger.e('Error adding location: $e');
       rethrow;
     }
   }
@@ -246,7 +241,7 @@ class LocationDataProvider with ChangeNotifier {
       notifyListeners();
       return comments;
     } catch (e) {
-      print('Error getting comments: $e');
+      logger.e('Error getting comments: $e');
       return [];
     }
   }
@@ -264,7 +259,7 @@ class LocationDataProvider with ChangeNotifier {
         await getCommentsForLocation(comment.locationId);
       }
     } catch (e) {
-      print('Error adding comment: $e');
+      logger.e('Error adding comment: $e');
       rethrow;
     }
   }
@@ -283,7 +278,7 @@ class LocationDataProvider with ChangeNotifier {
       notifyListeners();
       return voteSummary;
     } catch (e) {
-      print('Error getting vote summary: $e');
+      logger.e('Error getting vote summary: $e');
       return VoteSummary(likes: 0, dislikes: 0);
     }
   }
@@ -310,7 +305,7 @@ class LocationDataProvider with ChangeNotifier {
       _locationVotes[locationId] = voteSummary;
       notifyListeners();
     } catch (e) {
-      print('Error adding vote: $e');
+      logger.e('Error adding vote: $e');
       rethrow;
     }
   }
@@ -329,7 +324,7 @@ class LocationDataProvider with ChangeNotifier {
       _locationVotes[locationId] = voteSummary;
       notifyListeners();
     } catch (e) {
-      print('Error removing vote: $e');
+      logger.e('Error removing vote: $e');
       rethrow;
     }
   }
@@ -346,7 +341,7 @@ class LocationDataProvider with ChangeNotifier {
       notifyListeners(); // Ensure UI updates if needed
       return userVote;
     } catch (e) {
-      print('Error getting user vote: $e');
+      logger.e('Error getting user vote: $e');
       return null;
     }
   }

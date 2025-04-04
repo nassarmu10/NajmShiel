@@ -117,11 +117,13 @@ class MyApp extends StatelessWidget {
 
 // Auth wrapper to handle authentication state
 class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
+
   @override
-  _AuthWrapperState createState() => _AuthWrapperState();
+  AuthWrapperState createState() => AuthWrapperState();
 }
 
-class _AuthWrapperState extends State<AuthWrapper> {
+class AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
