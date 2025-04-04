@@ -158,6 +158,16 @@ class FirebaseLocationService {
     });
   }
 
+  // Delete a comment
+  Future<void> deleteComment(String commentId) async {
+    try {
+      await _firestore.collection(commentsCollection).doc(commentId).delete();
+    } catch (e) {
+      logger.e('Error deleting comment: $e');
+      throw e;
+    }
+  }
+
   // VOTE RELATED METHODS
 
   // Add or update a vote
@@ -284,5 +294,50 @@ class FirebaseLocationService {
       }
       return VoteSummary(likes: likes, dislikes: dislikes);
     });
+  }
+
+  // Update a comment
+  Future<void> updateComment(Comment comment) async {
+    try {
+      // Find the comment document by its ID
+      await _firestore
+          .collection(commentsCollection)
+          .doc(comment.id)
+          .update({
+        'content': comment.content,
+        'imageUrl': comment.imageUrl,
+        // We don't update other fields like userId, username, locationId, createdAt
+      });
+    } catch (e) {
+      logger.e('Error updating comment: $e');
+      throw e;
+    }
+  }
+  
+  // Update a location
+  Future<void> updateLocation(Location location) async {
+    try {
+      final locationData = {
+        'name': location.name,
+        'description': location.description,
+        'type': location.type.toString(),
+        'location': GeoPoint(location.latitude, location.longitude),
+        'images': location.images,
+        // Don't update createdBy, createdAt, etc.
+      };
+      
+      // For backwards compatibility
+      locationData['latitude'] = location.latitude;
+      locationData['longitude'] = location.longitude;
+      
+      await _firestore
+          .collection(locationsCollection)
+          .doc(location.id)
+          .update(locationData);
+          
+    } catch (e) {
+      logger.e('Error updating location: $e');
+      throw e;
+    }
   }
 }

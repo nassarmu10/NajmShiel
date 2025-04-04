@@ -264,6 +264,22 @@ class LocationDataProvider with ChangeNotifier {
     }
   }
 
+  // Delete a comment
+  Future<void> deleteComment(String commentId, String locationId) async {
+    try {
+      await _firebaseService.deleteComment(commentId);
+      
+      // Update local cache
+      if (_locationComments.containsKey(locationId)) {
+        _locationComments[locationId]!.removeWhere((comment) => comment.id == commentId);
+        notifyListeners();
+      }
+    } catch (e) {
+      logger.d('Error deleting comment: $e');
+      rethrow;
+    }
+  }
+
   // VOTE METHODS
 
   // Get vote summary for a location
@@ -344,6 +360,50 @@ class LocationDataProvider with ChangeNotifier {
       logger.e('Error getting user vote: $e');
       return null;
     }
+  }
+
+  // Update a comment
+  Future<void> updateComment(Comment comment) async {
+    try {
+      await _firebaseService.updateComment(comment);
+
+      // Update local cache
+      if (_locationComments.containsKey(comment.locationId)) {
+        final index = _locationComments[comment.locationId]!.indexWhere((c) => c.id == comment.id);
+        if (index != -1) {
+          _locationComments[comment.locationId]![index] = comment;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      logger.e('Error updating comment: $e');
+      rethrow;
+    }
+  }
+  
+  // Update a location
+  Future<void> updateLocation(Location location) async {
+    try {
+      await _firebaseService.updateLocation(location);
+      
+      // Update local cache
+      final index = _locations.indexWhere((loc) => loc.id == location.id);
+      if (index != -1) {
+        _locations[index] = location;
+        notifyListeners();
+      }
+    } catch (e) {
+      logger.e('Error updating location: $e');
+      rethrow;
+    }
+  }
+  // Check if user is the creator of a comment
+  bool isCommentCreator(Comment comment) {
+    return _currentUserId != null && comment.userId == _currentUserId;
+  }
+  // Check if user is the creator of a location
+  bool isLocationCreator(Location location) {
+    return _currentUserId != null && location.createdBy == _currentUserId;
   }
 }
 

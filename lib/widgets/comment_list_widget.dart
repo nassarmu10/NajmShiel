@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:map_explorer/models/comment.dart';
 import 'package:map_explorer/providers/location_data_provider.dart';
+import 'package:map_explorer/widgets/edit_comment.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -9,15 +10,15 @@ class CommentsList extends StatefulWidget {
   final String locationId;
   
   const CommentsList({
-    Key? key,
+    super.key,
     required this.locationId,
-  }) : super(key: key);
+  });
 
   @override
-  _CommentsListState createState() => _CommentsListState();
+  CommentsListState createState() => CommentsListState();
 }
 
-class _CommentsListState extends State<CommentsList> {
+class CommentsListState extends State<CommentsList> {
   bool _isLoading = true;
   List<Comment> _comments = [];
   
@@ -82,12 +83,12 @@ class _CommentsListState extends State<CommentsList> {
           ),
         ),
         if (_comments.isEmpty && !_isLoading)
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          const Padding(
+            padding: EdgeInsets.all(16.0),
             child: Center(
               child: Text(
                 'لا توجد تعليقات بعد. كن أول من يترك تعليقًا!',
-                style: const TextStyle(
+                style: TextStyle(
                   fontStyle: FontStyle.italic,
                   color: Colors.grey,
                 ),
@@ -114,13 +115,137 @@ class CommentItem extends StatelessWidget {
   final Comment comment;
   
   const CommentItem({
-    Key? key,
+    super.key,
     required this.comment,
-  }) : super(key: key);
+  });
+
+  // Add a method to check if the current user is the comment creator
+  bool _isCommentOwner(BuildContext context) {
+    final provider = Provider.of<LocationDataProvider>(context, listen: false);
+    return provider.isCommentCreator(comment);
+  }
+
+  // Show edit/delete menu
+  void _showOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('تعديل التعليق'),
+                onTap: () {
+                  Navigator.pop(context); // Close bottom sheet
+                  _showEditDialog(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('حذف التعليق', 
+                  style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context); // Close bottom sheet
+                  _confirmDelete(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: const Text('إلغاء'),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Show edit dialog
+  void _showEditDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Important for keyboard handling
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: EditCommentWidget(
+            comment: comment,
+            onCommentUpdated: () {
+              // Refresh the comments list
+              final commentsListState = context.findAncestorStateOfType<CommentsListState>();
+              if (commentsListState != null) {
+                commentsListState._loadComments();
+              }
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // Confirm delete dialog
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف التعليق'),
+        content: const Text('هل أنت متأكد من أنك تريد حذف هذا التعليق؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final provider = Provider.of<LocationDataProvider>(context, listen: false);
+                await provider.deleteComment(comment.id, comment.locationId);
+                
+                // Refresh the comments list
+                final commentsListState = context.findAncestorStateOfType<CommentsListState>();
+                if (commentsListState != null) {
+                  commentsListState._loadComments();
+                }
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('تم حذف التعليق بنجاح'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('خطأ: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('حذف', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
   
   @override
   Widget build(BuildContext context) {
     final formattedDate = DateFormat('MMM d, yyyy - h:mm a').format(comment.createdAt);
+    final isOwner = _isCommentOwner(context);
     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -166,6 +291,13 @@ class CommentItem extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Add options menu for owner
+                if (isOwner)
+                  IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () => _showOptions(context),
+                    tooltip: 'خيارات',
+                  ),
               ],
             ),
             const SizedBox(height: 12),
