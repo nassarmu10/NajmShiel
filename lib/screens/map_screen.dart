@@ -19,16 +19,17 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   final MapController mapController = MapController();
 
-  final LatLng defaultCenter = const LatLng(31.5, 35.0); 
-  final double initialZoom = 8.0; 
-  final double userLocationZoom = 14.0; // Closer zoom when user location is available
-  
+  final LatLng defaultCenter = const LatLng(31.5, 35.0);
+  final double initialZoom = 8.0;
+  final double userLocationZoom =
+      14.0; // Closer zoom when user location is available
+
   bool _isLoading = true;
   bool _hasError = false;
   bool _isLocationReady = false;
   LatLng? _userLocation;
   String _errorMessage = '';
-  
+
   @override
   void initState() {
     super.initState();
@@ -43,37 +44,38 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       });
     });
   }
-  
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-  
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       // When app is resumed, refresh data if needed
       if (!mounted) return;
-      final provider = Provider.of<LocationDataProvider>(context, listen: false);
+      final provider =
+          Provider.of<LocationDataProvider>(context, listen: false);
       provider.refreshLocations();
-      
+
       // Also refresh location if we don't have it yet
       if (_userLocation == null) {
         _getCurrentLocation();
       }
     }
   }
-  
-  // Try to get user's current location
+
   Future<void> _getCurrentLocation() async {
     if (!mounted) return;
-    
+    logger.i("here in _getCurrentLocation");
+
     try {
       setState(() {
         _isLocationReady = false;
       });
-      
+
       // Check if location services are enabled
       bool serviceEnabled = false;
       try {
@@ -100,7 +102,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           const Duration(seconds: 3),
           onTimeout: () => LocationPermission.denied,
         );
-        
+
         if (permission == LocationPermission.denied) {
           permission = await Geolocator.requestPermission().timeout(
             const Duration(seconds: 5),
@@ -116,8 +118,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         }
         return;
       }
-      
-      if (permission == LocationPermission.denied || 
+
+      if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (mounted) {
           setState(() {
@@ -126,36 +128,63 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         }
         return;
       }
-      
+
       // Get position
       try {
         Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
           timeLimit: const Duration(seconds: 5),
         );
-        
+
         if (!mounted) return;
-        
+
         setState(() {
           _userLocation = LatLng(position.latitude, position.longitude);
           _isLocationReady = true;
         });
-        
+
         // Wait a moment to ensure the map is ready before moving
         await Future.delayed(const Duration(milliseconds: 500));
-        
+
+        // Check if widget is still mounted and map controller is still valid
         if (mounted && _userLocation != null) {
+          // Add extra safety check for postFrameCallback
+          bool isMapControllerDisposed = false;
           try {
-            // Use a safer way to move the map
+            // Try to access a property of the map controller to see if it's disposed
+            var _ = mapController.camera.zoom;
+          } catch (e) {
+            isMapControllerDisposed = true;
+            logger.e('Map controller is disposed or invalid: $e');
+          }
+
+          if (!isMapControllerDisposed) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
+              // Double-check mounted status again inside callback
+              if (!mounted) return;
+
               try {
+                // Check controller state once more
+                try {
+                  var _ = mapController.camera.zoom;
+                } catch (e) {
+                  logger.e('Map controller became invalid: $e');
+                  return;
+                }
+
                 if (mapController.camera.zoom != 0) {
                   mapController.move(_userLocation!, userLocationZoom);
                 } else {
                   // If camera not ready, try again after a delay
                   Future.delayed(const Duration(milliseconds: 500), () {
-                    if (mounted) {
+                    if (!mounted) return;
+
+                    try {
+                      // Final check before moving
+                      var _ = mapController.camera.zoom;
                       mapController.move(_userLocation!, userLocationZoom);
+                    } catch (e) {
+                      logger.e('Delayed move failed, controller invalid: $e');
                     }
                   });
                 }
@@ -163,8 +192,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 logger.e('Error moving map camera: $e');
               }
             });
-          } catch (e) {
-            logger.e('Error setting map position: $e');
           }
         }
       } catch (e) {
@@ -184,19 +211,20 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       }
     }
   }
-  
+
   // Initialize data safely without triggering rebuild during build
   Future<void> _initializeDataSafely() async {
     try {
       // Set a temporary user ID without triggering notifications
-      final provider = Provider.of<LocationDataProvider>(context, listen: false);
-      
+      final provider =
+          Provider.of<LocationDataProvider>(context, listen: false);
+
       // Set default user ID without triggering rebuild
       provider.setCurrentUserId('anonymous_user', notify: false);
-      
+
       // Initialize data silently
       await provider.silentInitialize();
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -213,7 +241,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       }
     }
   }
-  
+
   void _retry() {
     setState(() {
       _isLoading = true;
@@ -225,7 +253,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _initializeDataSafely();
     _getCurrentLocation();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -250,7 +278,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              final provider = Provider.of<LocationDataProvider>(context, listen: false);
+              final provider =
+                  Provider.of<LocationDataProvider>(context, listen: false);
               provider.refreshLocations();
             },
             tooltip: 'تحديث المواقع',
@@ -272,7 +301,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       ),
     );
   }
-  
+
   Widget _buildMainContent() {
     if (_isLoading) {
       return const Center(
@@ -289,7 +318,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         ),
       );
     }
-    
+
     if (_hasError) {
       return Center(
         child: Column(
@@ -312,19 +341,20 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         ),
       );
     }
-    
+
     return _buildMap();
   }
-  
+
   Widget _buildMap() {
     return Consumer<LocationDataProvider>(
       builder: (context, locationProvider, child) {
         final locations = locationProvider.filteredLocations;
-        
+
         // For initial center, use user location if available, otherwise use default
         final initialCenter = _userLocation ?? defaultCenter;
-        final initialMapZoom = _userLocation != null ? userLocationZoom : initialZoom;
-        
+        final initialMapZoom =
+            _userLocation != null ? userLocationZoom : initialZoom;
+
         return Stack(
           children: [
             Builder(
@@ -343,13 +373,14 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+                        urlTemplate:
+                            'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
                         subdomains: const ['a', 'b', 'c'],
                         userAgentPackageName: 'com.example.najmshiel',
                         maxZoom: 18,
                         retinaMode: RetinaMode.isHighDensity(context),
                       ),
-                      
+
                       // User location marker (if available)
                       if (_userLocation != null)
                         MarkerLayer(
@@ -361,7 +392,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 decoration: BoxDecoration(
                                   color: Colors.blue.withOpacity(0.5),
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border:
+                                      Border.all(color: Colors.white, width: 2),
                                 ),
                                 child: const Icon(
                                   Icons.my_location,
@@ -372,36 +404,38 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                             ),
                           ],
                         ),
-                      
+
                       // Location markers
                       MarkerLayer(
-                        markers: locations.map((location) => 
-                          Marker(
-                            point: location.latLng,
-                            child: GestureDetector(
-                              onTap: () => _showLocationDetails(location.id),
-                              child: Container(
-                                padding: const EdgeInsets.all(1),
-                                decoration: BoxDecoration(
-                                  color: _getColorForType(location.type),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 2,
-                                      spreadRadius: 0.5,
+                        markers: locations
+                            .map((location) => Marker(
+                                  point: location.latLng,
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        _showLocationDetails(location.id),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(1),
+                                      decoration: BoxDecoration(
+                                        color: _getColorForType(location.type),
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.black.withOpacity(0.2),
+                                            blurRadius: 2,
+                                            spreadRadius: 0.5,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        _getIconForType(location.type),
+                                        color: Colors.white,
+                                        size: 14,
+                                      ),
                                     ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  _getIconForType(location.type),
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                              ),
-                            ),
-                          )
-                        ).toList(),
+                                  ),
+                                ))
+                            .toList(),
                       ),
                     ],
                   );
@@ -411,7 +445,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
+                        const Icon(Icons.map_outlined,
+                            size: 48, color: Colors.grey),
                         const SizedBox(height: 16),
                         Text('خطأ في تحميل الخريطة: $e'),
                         const SizedBox(height: 16),
@@ -425,7 +460,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 }
               },
             ),
-            
+
             // Loading indicator while waiting for location
             if (!_isLocationReady)
               Positioned(
@@ -452,7 +487,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.blue),
                         ),
                       ),
                       SizedBox(width: 8),
@@ -466,15 +502,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       },
     );
   }
-  
+
   void _showLocationDetails(String locationId) {
     Navigator.pushNamed(
-      context, 
+      context,
       '/location_details',
       arguments: locationId,
     );
   }
-  
+
   void _showFilters() {
     showModalBottomSheet(
       context: context,
@@ -486,113 +522,121 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         return Consumer<LocationDataProvider>(
           builder: (context, locationProvider, child) {
             return SingleChildScrollView(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom + 8,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                  const Text(
-                    'تصفية المواقع',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.right,
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Historical filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(Icons.history, color: _getColorForType(LocationType.historical)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'المواقع التاريخية',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showHistorical,
-                    onChanged: (value) => locationProvider.toggleHistorical(),
-                    dense: true,
-                  ),
-                  
-                  // Forests filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(Icons.forest, color: _getColorForType(LocationType.forest)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'المناطق الطبيعية',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showForests,
-                    onChanged: (value) => locationProvider.toggleForests(),
-                    dense: true,
-                  ),
-                  
-                  // Cities filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(Icons.location_city, color: _getColorForType(LocationType.city)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'المدن والبلدات',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showCities,
-                    onChanged: (value) => locationProvider.toggleCities(),
-                    dense: true,
-                  ),
-                  
-                  // Other filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(Icons.place, color: _getColorForType(LocationType.other)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'أماكن أخرى',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showOther,
-                    onChanged: (value) => locationProvider.toggleOther(),
-                    dense: true,
-                  ),
-                  
-                  // Actions
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 8,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextButton(
-                        onPressed: () => locationProvider.setAllFilters(true),
-                        child: const Text('عرض الكل'),
+                      const Text(
+                        'تصفية المواقع',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.right,
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('إغلاق'),
+                      const SizedBox(height: 16),
+
+                      // Historical filter
+                      CheckboxListTile(
+                        title: Row(
+                          children: [
+                            Icon(Icons.history,
+                                color:
+                                    _getColorForType(LocationType.historical)),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'المواقع التاريخية',
+                              textAlign: TextAlign.right,
+                            ),
+                          ],
+                        ),
+                        value: locationProvider.showHistorical,
+                        onChanged: (value) =>
+                            locationProvider.toggleHistorical(),
+                        dense: true,
+                      ),
+
+                      // Forests filter
+                      CheckboxListTile(
+                        title: Row(
+                          children: [
+                            Icon(Icons.forest,
+                                color: _getColorForType(LocationType.forest)),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'المناطق الطبيعية',
+                              textAlign: TextAlign.right,
+                            ),
+                          ],
+                        ),
+                        value: locationProvider.showForests,
+                        onChanged: (value) => locationProvider.toggleForests(),
+                        dense: true,
+                      ),
+
+                      // Cities filter
+                      CheckboxListTile(
+                        title: Row(
+                          children: [
+                            Icon(Icons.location_city,
+                                color: _getColorForType(LocationType.city)),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'المدن والبلدات',
+                              textAlign: TextAlign.right,
+                            ),
+                          ],
+                        ),
+                        value: locationProvider.showCities,
+                        onChanged: (value) => locationProvider.toggleCities(),
+                        dense: true,
+                      ),
+
+                      // Other filter
+                      CheckboxListTile(
+                        title: Row(
+                          children: [
+                            Icon(Icons.place,
+                                color: _getColorForType(LocationType.other)),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'أماكن أخرى',
+                              textAlign: TextAlign.right,
+                            ),
+                          ],
+                        ),
+                        value: locationProvider.showOther,
+                        onChanged: (value) => locationProvider.toggleOther(),
+                        dense: true,
+                      ),
+
+                      // Actions
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () =>
+                                locationProvider.setAllFilters(true),
+                            child: const Text('عرض الكل'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('إغلاق'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            ));
+                ));
           },
         );
       },
     );
   }
-  
+
   Color _getColorForType(LocationType type) {
     switch (type) {
       case LocationType.historical:
@@ -605,7 +649,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         return Colors.purple;
     }
   }
-  
+
   IconData _getIconForType(LocationType type) {
     switch (type) {
       case LocationType.historical:

@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.mapExplorer</string>
+	<string>com.najmshiel.map</string>
 	<key>PROJECT_ID</key>
 	<string>najmshiel-6e18a</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:482997368728:ios:c45ce0d79b31214e379ded</string>
+	<string>1:482997368728:ios:37e38e27d591e8f6379ded</string>
 </dict>
 </plist>
