@@ -1,23 +1,24 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:map_explorer/screens/map_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:map_explorer/providers/location_data_provider.dart';
+import 'package:map_explorer/services/auth_service.dart';
 import 'package:map_explorer/logger.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  LoginScreenState createState() => LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class LoginScreenState extends State<LoginScreen> {
   final TextEditingController _nameController = TextEditingController();
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   String _errorMessage = '';
   
   @override
@@ -26,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Anonymous login
   Future<void> _login() async {
     final name = _nameController.text.trim();
     // Validate name
@@ -41,9 +43,12 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
       // Sign in anonymously
-      final userCredential = await FirebaseAuth.instance.signInAnonymously();
+      final userCredential = await authService.signInAnonymously();
       final user = userCredential.user;
+      
       if (user != null) {
         // Generate a unique username if needed
         final username = name.isNotEmpty ? name : 'مستخدم_${user.uid.substring(0, 5)}';
@@ -76,8 +81,6 @@ class _LoginScreenState extends State<LoginScreen> {
             // Set the username in the provider
             provider.setUserName(username);
             // Navigate to map screen
-            // Navigator.pushReplacementNamed(context, '/');
-            // Direct navigation approach
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (context) => const MapScreen()),
               (route) => false,
@@ -96,6 +99,58 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Google Sign In
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isGoogleLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final userCredential = await authService.signInWithGoogle();
+      
+      // User cancelled the sign-in
+      if (userCredential == null) {
+        setState(() {
+          _isGoogleLoading = false;
+        });
+        return;
+      }
+      
+      final user = userCredential.user;
+      if (user != null && mounted) {
+        // Update provider with user ID
+        Future.microtask(() {
+          final provider = Provider.of<LocationDataProvider>(context, listen: false);
+          provider.setCurrentUserId(user.uid);
+          // Set the username
+          if (user.displayName != null) {
+            provider.setUserName(user.displayName!);
+          }
+          // Navigate to map screen
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const MapScreen()),
+            (route) => false,
+          );
+        });
+      }
+    } catch (e) {
+      logger.e('Google Sign-In error: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'حدث خطأ أثناء تسجيل الدخول بجوجل: ${e.toString()}';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
         });
       }
     }
@@ -138,6 +193,46 @@ class _LoginScreenState extends State<LoginScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
+              // Google Sign-In button
+              ElevatedButton.icon(
+                onPressed: _isGoogleLoading || _isLoading ? null : _signInWithGoogle,
+                icon: Image.asset(
+                  'assets/images/google_logo.png', // Add this image to your assets
+                  height: 24.0,
+                ),
+                label: _isGoogleLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text('تسجيل الدخول بحساب Google'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  shadowColor: Colors.black,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('أو'),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 16),
               // Name input field
               TextField(
                 controller: _nameController,
@@ -149,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 textAlign: TextAlign.right,
                 textDirection: TextDirection.rtl,
-                autofocus: true,
+                autofocus: false,
                 keyboardType: TextInputType.name,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _login(),
@@ -167,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
               // Login button
               ElevatedButton(
-                onPressed: _isLoading ? null : _login,
+                onPressed: _isLoading || _isGoogleLoading ? null : _login,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor: Colors.blue,
@@ -193,14 +288,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       )
                     : const Text(
-                        'تسجيل الدخول',
+                        'تسجيل الدخول بدون حساب',
                         style: TextStyle(fontSize: 18),
                       ),
               ),
               const SizedBox(height: 16),
               // Skip for now button
               TextButton(
-                onPressed: _isLoading
+                onPressed: _isLoading || _isGoogleLoading
                     ? null
                     : () {
                         // Generate random username and continue

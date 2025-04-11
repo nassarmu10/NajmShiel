@@ -124,6 +124,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  String _getAuthTypeText() {
+    final authType = _userData?['authType'];
+    if (authType == 'google') {
+      return 'حساب جوجل';
+    } else if (authType == 'anonymous') {
+      return 'مستخدم زائر';
+    }
+    return 'مستخدم مسجل';
+  }
+
   Future<void> _signOut() async {
     showDialog(
       context: context,
@@ -192,16 +202,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Profile avatar
-                  const CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.blue,
-                    child: Icon(
-                      Icons.person,
-                      size: 50,
-                      color: Colors.white,
-                    ),
-                  ),
-                  
+                  _userData?['photoURL'] != null
+                    ? CircleAvatar(
+                        radius: 50,
+                        backgroundImage: NetworkImage(_userData?['photoURL']),
+                      )
+                    : const CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.blue,
+                        child: Icon(
+                          Icons.person,
+                          size: 50,
+                          color: Colors.white,
+                        ),
+                      ),
                   const SizedBox(height: 24),
                   
                   // User name
@@ -309,13 +323,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               textAlign: TextAlign.right,
                             ),
                             subtitle: Text(
-                              _userData?['authType'] == 'anonymous'
-                                  ? 'مستخدم زائر'
-                                  : 'مستخدم مسجل',
+                              _getAuthTypeText(),
                               textAlign: TextAlign.right,
                             ),
                             leading: const Icon(Icons.account_circle),
                           ),
+                          if (_userData?['authType'] == 'google' && _userData?['email'] != null)
+                            ListTile(
+                              title: const Text(
+                                'البريد الإلكتروني',
+                                textAlign: TextAlign.right,
+                              ),
+                              subtitle: Text(
+                                _userData?['email'] ?? '',
+                                textAlign: TextAlign.right,
+                              ),
+                              leading: const Icon(Icons.email),
+                            ),
                           if (_userData?['createdAt'] != null)
                             ListTile(
                               title: const Text(

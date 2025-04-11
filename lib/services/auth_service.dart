@@ -1,11 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:map_explorer/logger.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
   
   // Get current user
   User? get currentUser => _auth.currentUser;
@@ -23,10 +24,53 @@ class AuthService {
     }
   }
   
+  // Sign in with Google
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      // Begin interactive sign-in process
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        // User cancelled the sign-in flow
+        return null;
+      }
+      
+      // Obtain auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      // Create new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      
+      // Once signed in, return the UserCredential
+      final userCredential = await _auth.signInWithCredential(credential);
+      
+      // Create/update user document in Firestore
+      if (userCredential.user != null) {
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'name': userCredential.user!.displayName ?? 'User',
+          'email': userCredential.user!.email,
+          'photoURL': userCredential.user!.photoURL,
+          'lastLogin': FieldValue.serverTimestamp(),
+          'lastActivity': FieldValue.serverTimestamp(),
+          'authType': 'google',
+        }, SetOptions(merge: true));
+      }
+      
+      return userCredential;
+    } catch (e) {
+      logger.e('Error signing in with Google: $e');
+      rethrow;
+    }
+  }
+  
   // Sign out
   Future<void> signOut() async {
     try {
-      await _auth.signOut();
+      await _googleSignIn.signOut(); // Sign out from Google
+      await _auth.signOut();         // Sign out from Firebase
       logger.i("User signed out successfully");
     } catch (e) {
       logger.e('Error signing out: $e');

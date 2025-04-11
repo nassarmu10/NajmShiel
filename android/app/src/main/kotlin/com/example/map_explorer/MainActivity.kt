@@ -1,4 +1,4 @@
-package com.example.map_explorer
+package com.example.najmshiel
 
 import io.flutter.embedding.android.FlutterActivity
 

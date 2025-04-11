@@ -10,6 +10,8 @@ import 'package:provider/provider.dart';
 import 'package:cloudinary_public/cloudinary_public.dart';
 import '../models/location.dart';
 import '../providers/location_data_provider.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({super.key});
@@ -211,23 +213,91 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
     }
   }
 
+  // Add this helper method to compress an image and check its size
+  Future<XFile?> _compressAndValidateImage(XFile originalImage) async {
+    try {
+      // Create a temporary directory to store compressed images
+      final tempDir = await getTemporaryDirectory();
+      final targetPath = '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      // Compress the image
+      final compressedFile = await FlutterImageCompress.compressAndGetFile(
+        originalImage.path,
+        targetPath,
+        quality: 70, // Adjust quality as needed
+        minWidth: 800,
+        minHeight: 800,
+      );
+      
+      if (compressedFile == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'فشل ضغط الصورة، يرجى المحاولة مرة أخرى.',
+                textAlign: TextAlign.right,
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return null;
+      }
+      
+      // Check if the compressed file is still over 1MB
+      final fileSize = await compressedFile.length();
+      if (fileSize > 1048576) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'الصورة كبيرة جدًا حتى بعد الضغط. يجب أن يكون حجم الصورة أقل من 1 ميغابايت.',
+                textAlign: TextAlign.right,
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return null;
+      }
+      
+      // Return compressed image as XFile
+      return XFile(compressedFile.path);
+    } catch (e) {
+      logger.e('Error compressing image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في معالجة الصورة: $e')),
+        );
+      }
+      return null;
+    }
+  }
+
+
   // Method to pick images from gallery
   Future<void> _pickImages() async {
     final ImagePicker picker = ImagePicker();
     try {
-      final List<XFile> images = await picker.pickMultiImage();
-      if (images.isNotEmpty && mounted) {
-        setState(() {
-          _selectedImages.addAll(images);
-        });
+      final List<XFile> selectedImages = await picker.pickMultiImage();
+      if (selectedImages.isNotEmpty && mounted) {
+        // Process each image
+        for (var image in selectedImages) {
+          final compressedImage = await _compressAndValidateImage(image);
+          if (compressedImage != null && mounted) {
+            setState(() {
+              _selectedImages.add(compressedImage);
+            });
+          }
+        }
       }
     } catch (e) {
       logger.e('Error picking images: $e');
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في اختيار الصور: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في اختيار الصور: $e')),
+        );
+      }
     }
   }
 
@@ -242,17 +312,20 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         imageQuality: 80,
       );
       if (photo != null && mounted) {
-        setState(() {
-          _selectedImages.add(photo);
-        });
+        final compressedPhoto = await _compressAndValidateImage(photo);
+        if (compressedPhoto != null && mounted) {
+          setState(() {
+            _selectedImages.add(compressedPhoto);
+          });
+        }
       }
     } catch (e) {
       logger.e('Error taking photo: $e');
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في التقاط الصورة: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في التقاط الصورة: $e')),
+        );
+      }
     }
   }
 
