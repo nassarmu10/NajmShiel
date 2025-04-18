@@ -524,7 +524,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                         TileLayer(
                           urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
                           subdomains: const ['a', 'b', 'c'],
-                          userAgentPackageName: 'com.example.najmshiel',
+                          userAgentPackageName: 'com.najmshiel.map',
                           maxZoom: 18,
                           retinaMode: RetinaMode.isHighDensity(context),
                         ),

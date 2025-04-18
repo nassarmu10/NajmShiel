@@ -58,6 +58,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "482997368728-t28b9ipu6frlkvj6dneqvhh8cu0ne9vo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.najmshiel.map",
+            "certificate_hash": "0f96cfa4ceae7df3991d0be95fd811db6edb791e"
+          }
+        },
+        {
           "client_id": "482997368728-ti56l1bma01pk3k1n3tkgbb75ak8iff4.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

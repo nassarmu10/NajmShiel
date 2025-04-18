@@ -6,8 +6,14 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
-    namespace = "com.example.najmshiel"
+    namespace = "com.najmshiel.map"
     // namespace = "com.example.map_explorer"
     // compileSdk = flutter.compileSdkVersion
     compileSdk = 35
@@ -24,22 +30,32 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.najmshiel"
-        resValue "string", "default_web_client_id", "482997368728-0jpdgf5gc722il1ojg3bdoei57mcov5h.apps.googleusercontent.com"
+        applicationId = "com.najmshiel.map"
+        // resValue "string", "default_web_client_id", "482997368728-0jpdgf5gc722il1ojg3bdoei57mcov5h.apps.googleusercontent.com"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode 9
-        versionName "0.0.1"
+        versionCode 10
+        versionName "0.0.2"
         minSdkVersion 23
+    }
+
+    signingConfigs {
+       release {
+           keyAlias keystoreProperties['keyAlias']
+           keyPassword keystoreProperties['keyPassword']
+           storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+           storePassword keystoreProperties['storePassword']
+        }
     }
 
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            // signingConfig = signingConfigs.debug
+            signingConfig signingConfigs.release
         }
     }
 }
