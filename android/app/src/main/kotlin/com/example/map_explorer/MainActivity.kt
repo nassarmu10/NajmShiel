@@ -1,4 +1,4 @@
-package com.example.najmshiel
+package com.najmshiel.map
 
 import io.flutter.embedding.android.FlutterActivity
 

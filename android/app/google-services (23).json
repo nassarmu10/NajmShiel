@@ -66,14 +66,6 @@
           }
         },
         {
-          "client_id": "482997368728-ti56l1bma01pk3k1n3tkgbb75ak8iff4.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.najmshiel.map",
-            "certificate_hash": "902c254cfa21f7a8aa6e9db3cc6cec337aa1558e"
-          }
-        },
-        {
           "client_id": "482997368728-0jpdgf5gc722il1ojg3bdoei57mcov5h.apps.googleusercontent.com",
           "client_type": 3
         }

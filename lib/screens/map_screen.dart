@@ -21,19 +21,30 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   final LatLng defaultCenter = const LatLng(31.5, 35.0);
   final double initialZoom = 8.0;
-  final double userLocationZoom =
-      14.0; // Closer zoom when user location is available
+  final double userLocationZoom = 14.0; // Closer zoom when user location is available
 
   bool _isLoading = true;
   bool _hasError = false;
   bool _isLocationReady = false;
   LatLng? _userLocation;
   String _errorMessage = '';
+  double _currentZoom = 8.0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Add listener for zoom changes
+    mapController.mapEventStream.listen((MapEvent event) {
+      if (event is MapEventMoveEnd) {
+        if (mounted) {
+          setState(() {
+            _currentZoom = event.camera.zoom;
+          });
+        }
+      }
+    });
+
     // Load data first, then get location
     _initializeDataSafely().then((_) {
       // Add a delay before getting location to ensure map is ready
@@ -183,6 +194,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       // Final check before moving
                       var _ = mapController.camera.zoom;
                       mapController.move(_userLocation!, userLocationZoom);
+                      setState(() {
+                        _currentZoom = userLocationZoom;
+                      });
                     } catch (e) {
                       logger.e('Delayed move failed, controller invalid: $e');
                     }
@@ -345,6 +359,26 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     return _buildMap();
   }
 
+  //  Calculate marker size based on zoom level
+  double _getMarkerSize(double zoom) {
+    // At zoom <= 8, use small markers
+    if (zoom <= 8) return 10;
+    // At zoom >= 14, use larger markers
+    if (zoom >= 14) return 24;
+    // In between, linearly interpolate sizes
+    return 10 + ((zoom - 8) / 6) * 14; // Linear interpolation between 10 and 24
+  }
+
+  // Get icon size based on current zoom
+  double get _iconSize {
+    return _getMarkerSize(_currentZoom) * 0.7;
+  }
+
+  // Get circle size based on current zoom (slightly larger than icon for touch target)
+  double get _circleSize {
+    return _getMarkerSize(_currentZoom);
+  }
+
   Widget _buildMap() {
     return Consumer<LocationDataProvider>(
       builder: (context, locationProvider, child) {
@@ -376,7 +410,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         urlTemplate:
                             'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
                         subdomains: const ['a', 'b', 'c'],
-                        userAgentPackageName: 'ccom.najmshiel.map',
+                        userAgentPackageName: 'com.najmshiel.map',
                         maxZoom: 18,
                         retinaMode: RetinaMode.isHighDensity(context),
                       ),
@@ -386,19 +420,21 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         MarkerLayer(
                           markers: [
                             Marker(
+                              width: _getMarkerSize(_currentZoom) * 1.5, // Slightly larger than location markers
+                              height: _getMarkerSize(_currentZoom) * 1.5,
                               point: _userLocation!,
                               child: Container(
-                                padding: const EdgeInsets.all(4),
+                                // padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.5),
+                                  color: Colors.blue.withOpacity(0.9),
                                   shape: BoxShape.circle,
                                   border:
                                       Border.all(color: Colors.white, width: 2),
                                 ),
-                                child: const Icon(
-                                  Icons.my_location,
+                                child: Icon(
+                                  Icons.navigation,
                                   color: Colors.white,
-                                  size: 20,
+                                  size: _getMarkerSize(_currentZoom) * 0.8,
                                 ),
                               ),
                             ),
@@ -408,13 +444,20 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       // Location markers
                       MarkerLayer(
                         markers: locations
-                            .map((location) => Marker(
+                            .map((location) {
+                              final markerSize = _getMarkerSize(_currentZoom);
+                              final iconSize = markerSize * 0.7;
+                              return  Marker(
+                                width: markerSize,
+                                height: markerSize,
                                   point: location.latLng,
                                   child: GestureDetector(
                                     onTap: () =>
                                         _showLocationDetails(location.id),
                                     child: Container(
-                                      padding: const EdgeInsets.all(1),
+                                      height: _circleSize/5,
+                                      width: _circleSize/5,
+                                      // padding: const EdgeInsets.all(1),
                                       decoration: BoxDecoration(
                                         color: _getColorForType(location.type),
                                         shape: BoxShape.circle,
@@ -430,11 +473,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                       child: Icon(
                                         _getIconForType(location.type),
                                         color: Colors.white,
-                                        size: 14,
+                                        size: iconSize,
                                       ),
                                     ),
                                   ),
-                                ))
+                                );})
                             .toList(),
                       ),
                     ],
@@ -459,6 +502,25 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   );
                 }
               },
+            ),
+
+            // Current zoom indicator (can be removed in production)
+            Positioned(
+              top: 16,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Zoom: ${_currentZoom.toStringAsFixed(1)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
 
             // Loading indicator while waiting for location

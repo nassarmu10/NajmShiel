@@ -244,11 +244,28 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                               MarkerLayer(
                                 markers: [
                                   Marker(
+                                    height: 30, // Fixed size for detail view
+                                    width: 30,
                                     point: location.latLng,
-                                    child: Icon(
-                                      _getIconForType(location.type),
-                                      color: _getColorForType(location.type),
-                                      size: 24,
+                                    child: Container(
+                                      height: 40, // Fixed size for detail view
+                                      width: 10,
+                                      decoration: BoxDecoration(
+                                        color: _getColorForType(location.type),
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.2),
+                                            blurRadius: 2,
+                                            spreadRadius: 0.5,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        _getIconForType(location.type),
+                                        color: Colors.white,
+                                        size: 20, // Icon is smaller than container
+                                      ),
                                     ),
                                   ),
                                 ],
