@@ -35,10 +35,11 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode 10
-        versionName "0.0.2"
-        minSdkVersion 23
+        // targetSdk = flutter.targetSdkVersion
+        targetSdk = 35
+        versionCode 15
+        versionName "0.0.7"
+        minSdkVersion 24
     }
 
     signingConfigs {
@@ -54,8 +55,8 @@ android {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
-            // signingConfig signingConfigs.release
+            // signingConfig = signingConfigs.debug
+            signingConfig signingConfigs.release
         }
     }
 }

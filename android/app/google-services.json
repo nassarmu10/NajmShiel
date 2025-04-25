@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "482997368728-15imljic013qa93rtb97d3gkip1m552s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.najmshiel",
+            "certificate_hash": "0f96cfa4ceae7df3991d0be95fd811db6edb791e"
+          }
+        },
+        {
           "client_id": "482997368728-alnhqmae71vtot1opk3v63s8s9riaggq.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -58,19 +66,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "482997368728-3n38cm46hshc3urbk04a8fm9gak0fiko.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.najmshiel.map",
+            "certificate_hash": "0b27a034f6cb337b75e26305af45ca1bac4e180d"
+          }
+        },
+        {
+          "client_id": "482997368728-61ldv0v3i5s4erv24vojge6vc9c19gn1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.najmshiel.map",
+            "certificate_hash": "eb5dd519ecf6719907969f435c5a0f2f256d8101"
+          }
+        },
+        {
           "client_id": "482997368728-t28b9ipu6frlkvj6dneqvhh8cu0ne9vo.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.najmshiel.map",
             "certificate_hash": "0f96cfa4ceae7df3991d0be95fd811db6edb791e"
-          }
-        },
-        {
-          "client_id": "482997368728-ti56l1bma01pk3k1n3tkgbb75ak8iff4.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.najmshiel.map",
-            "certificate_hash": "902c254cfa21f7a8aa6e9db3cc6cec337aa1558e"
           }
         },
         {
