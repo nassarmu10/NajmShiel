@@ -3,8 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:map_explorer/logger.dart';
+import 'package:map_explorer/utils/image_utils.dart';
 import 'package:provider/provider.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
 import 'package:map_explorer/models/comment.dart';
 import 'package:map_explorer/providers/location_data_provider.dart';
 
@@ -62,46 +63,38 @@ class _AddCommentWidgetState extends State<AddCommentWidget> {
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
     try {
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 80,
-      );
-      
-      if (image != null) {
+      final images = await ImageUtils.pickAndCompressMultipleImages(context);
+      if (images.isNotEmpty && mounted) {
         setState(() {
-          _selectedImage = image;
+          _selectedImage = images.first; // Just use the first image for comments
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
-      );
+      logger.e('Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في اختيار الصورة: $e')),
+        );
+      }
     }
   }
 
   Future<void> _takePhoto() async {
-    final ImagePicker picker = ImagePicker();
     try {
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 80,
-      );
-      
-      if (photo != null) {
+      final photo = await ImageUtils.takeAndCompressPhoto(context);
+      if (photo != null && mounted) {
         setState(() {
           _selectedImage = photo;
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error taking photo: $e')),
-      );
+      logger.e('Error taking photo: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في التقاط الصورة: $e')),
+        );
+      }
     }
   }
 
@@ -112,13 +105,13 @@ class _AddCommentWidgetState extends State<AddCommentWidget> {
   }
 
   Future<void> _submitComment() async {
-    // Validate input
-    if (_commentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرجاء إدخال تعليق')),
-      );
-      return;
-    }
+    // // Validate input
+    // if (_commentController.text.trim().isEmpty) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text('الرجاء إدخال تعليق')),
+    //   );
+    //   return;
+    // }
 
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -149,20 +142,13 @@ class _AddCommentWidgetState extends State<AddCommentWidget> {
       // Upload image to Cloudinary if selected
       String? imageUrl;
       if (_selectedImage != null) {
-        final cloudinary = CloudinaryPublic(
-          'dchx2vghg',  // Replace with your cloud name
-          'location_comments',  // Replace with your upload preset name
-          cache: false,
-        );
-        
-        final cloudinaryFile = CloudinaryFile.fromFile(
-          _selectedImage!.path,
+        imageUrl = await ImageUtils.uploadToCloudinary(
+          _selectedImage!,
+          context: context,
+          cloudName: 'dchx2vghg',
+          uploadPreset: 'location_comments',
           folder: 'location_comments',
-          resourceType: CloudinaryResourceType.Image,
         );
-        
-        final response = await cloudinary.uploadFile(cloudinaryFile);
-        imageUrl = response.secureUrl;
       }
 
       // Create comment

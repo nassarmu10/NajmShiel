@@ -20,6 +20,14 @@ class LocationDetailsScreen extends StatefulWidget {
 
 class LocationDetailsScreenState extends State<LocationDetailsScreen> {
   bool _showAddComment = false;
+  bool _isEditingDescription = false;
+  TextEditingController _descriptionController = TextEditingController();
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
   
   @override
   void initState() {
@@ -190,10 +198,57 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        location.description,
-                        style: const TextStyle(fontSize: 16),
-                      ),
+                      // Check if user is creator of this location
+                      if (locationProvider.isLocationCreator(location))
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _isEditingDescription 
+                                ? TextFormField(
+                                    controller: _descriptionController,
+                                    decoration: const InputDecoration(
+                                      border: OutlineInputBorder(),
+                                      hintText: 'Enter new description',
+                                    ),
+                                    maxLines: 3,
+                                  )
+                                : Text(
+                                    location.description,
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                            ),
+                            IconButton(
+                              icon: Icon(_isEditingDescription ? Icons.check : Icons.edit),
+                              onPressed: () {
+                                if (_isEditingDescription) {
+                                  // Save the updated description
+                                  _saveDescription(location, locationProvider);
+                                } else {
+                                  // Enter edit mode
+                                  setState(() {
+                                    _descriptionController.text = location.description;
+                                    _isEditingDescription = true;
+                                  });
+                                }
+                              },
+                            ),
+                            if (_isEditingDescription)
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () {
+                                  // Cancel editing
+                                  setState(() {
+                                    _isEditingDescription = false;
+                                  });
+                                },
+                              ),
+                          ],
+                        )
+                      else
+                        Text(
+                          location.description,
+                          style: const TextStyle(fontSize: 16),
+                        ),
                       
                       const SizedBox(height: 16),
                       
@@ -208,6 +263,20 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                           ),
                         ],
                       ),
+                      if (location.creatorName != null && location.creatorName!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.person, size: 16, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Added by ${location.creatorName}',
+                                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
                       
                       const SizedBox(height: 16),
                       
@@ -316,6 +385,71 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
         );
       },
     );
+  }
+
+  Future<void> _saveDescription(Location location, LocationDataProvider provider) async {
+    final updatedDescription = _descriptionController.text.trim();
+    
+    if (updatedDescription.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('الوصف لا يمكن أن يكون فارغاً')),
+      );
+      return;
+    }
+
+    if (updatedDescription == location.description) {
+      // No changes made, just exit edit mode
+      setState(() {
+        _isEditingDescription = false;
+      });
+      return;
+    }
+
+    try {
+      // Create updated location with new description only
+      final updatedLocation = Location(
+        id: location.id,
+        name: location.name,
+        description: updatedDescription,
+        type: location.type,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        createdAt: location.createdAt,
+        images: location.images,
+        createdBy: location.createdBy,
+        creatorName: location.creatorName,
+      );
+      
+      // Update the location
+      await provider.updateLocation(updatedLocation);
+      
+      if (mounted) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم تحديث الوصف بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Exit edit mode
+        setState(() {
+          _isEditingDescription = false;
+        });
+        
+        // Refresh locations to get updated data
+        provider.refreshLocations();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في تحديث الوصف: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
   
   Color _getColorForType(LocationType type) {

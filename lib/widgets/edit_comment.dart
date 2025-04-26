@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:map_explorer/utils/image_utils.dart';
 import 'package:provider/provider.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
 import 'package:map_explorer/models/comment.dart';
 import 'package:map_explorer/providers/location_data_provider.dart';
 
@@ -41,18 +41,11 @@ class EditCommentWidgetState extends State<EditCommentWidget> {
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
     try {
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 80,
-      );
-      
-      if (image != null) {
+      final images = await ImageUtils.pickAndCompressMultipleImages(context);
+      if (images.isNotEmpty && mounted) {
         setState(() {
-          _selectedImage = image;
+          _selectedImage = images.first; // Just use the first image for comments
           _keepExistingImage = false;
         });
       }
@@ -66,16 +59,9 @@ class EditCommentWidgetState extends State<EditCommentWidget> {
   }
 
   Future<void> _takePhoto() async {
-    final ImagePicker picker = ImagePicker();
     try {
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 80,
-      );
-      
-      if (photo != null) {
+      final photo = await ImageUtils.takeAndCompressPhoto(context);
+      if (photo != null && mounted) {
         setState(() {
           _selectedImage = photo;
           _keepExistingImage = false;
@@ -119,29 +105,21 @@ class EditCommentWidgetState extends State<EditCommentWidget> {
       
       // Determine final image URL
       String? imageUrl;
-      
+
       // Keep existing image
       if (_keepExistingImage && _existingImageUrl != null) {
         imageUrl = _existingImageUrl;
       } 
       // Upload new image
       else if (_selectedImage != null) {
-        final cloudinary = CloudinaryPublic(
-          'dchx2vghg',  // Replace with your cloud name
-          'location_comments',  // Replace with your upload preset name
-          cache: false,
-        );
-        
-        final cloudinaryFile = CloudinaryFile.fromFile(
-          _selectedImage!.path,
+        imageUrl = await ImageUtils.uploadToCloudinary(
+          _selectedImage!,
+          context: context,
+          cloudName: 'dchx2vghg',
+          uploadPreset: 'location_comments',
           folder: 'location_comments',
-          resourceType: CloudinaryResourceType.Image,
         );
-        
-        final response = await cloudinary.uploadFile(cloudinaryFile);
-        imageUrl = response.secureUrl;
       }
-      // No image case - imageUrl will remain null
 
       // Create updated comment
       final updatedComment = Comment(

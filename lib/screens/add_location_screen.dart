@@ -6,12 +6,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:map_explorer/logger.dart';
+import 'package:map_explorer/utils/image_utils.dart';
 import 'package:provider/provider.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
 import '../models/location.dart';
 import '../providers/location_data_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:path_provider/path_provider.dart';
 
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({super.key});
@@ -213,83 +212,14 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
     }
   }
 
-  // Add this helper method to compress an image and check its size
-  Future<XFile?> _compressAndValidateImage(XFile originalImage) async {
-    try {
-      // Create a temporary directory to store compressed images
-      final tempDir = await getTemporaryDirectory();
-      final targetPath = '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      
-      // Compress the image
-      final compressedFile = await FlutterImageCompress.compressAndGetFile(
-        originalImage.path,
-        targetPath,
-        quality: 70, // Adjust quality as needed
-        minWidth: 800,
-        minHeight: 800,
-      );
-      
-      if (compressedFile == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'فشل ضغط الصورة، يرجى المحاولة مرة أخرى.',
-                textAlign: TextAlign.right,
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return null;
-      }
-      
-      // Check if the compressed file is still over 1MB
-      final fileSize = await compressedFile.length();
-      if (fileSize > 1048576) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'الصورة كبيرة جدًا حتى بعد الضغط. يجب أن يكون حجم الصورة أقل من 1 ميغابايت.',
-                textAlign: TextAlign.right,
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return null;
-      }
-      
-      // Return compressed image as XFile
-      return XFile(compressedFile.path);
-    } catch (e) {
-      logger.e('Error compressing image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في معالجة الصورة: $e')),
-        );
-      }
-      return null;
-    }
-  }
-
-
   // Method to pick images from gallery
   Future<void> _pickImages() async {
-    final ImagePicker picker = ImagePicker();
     try {
-      final List<XFile> selectedImages = await picker.pickMultiImage();
-      if (selectedImages.isNotEmpty && mounted) {
-        // Process each image
-        for (var image in selectedImages) {
-          final compressedImage = await _compressAndValidateImage(image);
-          if (compressedImage != null && mounted) {
-            setState(() {
-              _selectedImages.add(compressedImage);
-            });
-          }
-        }
+      final newImages = await ImageUtils.pickAndCompressMultipleImages(context);
+      if (newImages.isNotEmpty && mounted) {
+        setState(() {
+          _selectedImages.addAll(newImages);
+        });
       }
     } catch (e) {
       logger.e('Error picking images: $e');
@@ -303,21 +233,12 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
 
   // Method to take a photo
   Future<void> _takePhoto() async {
-    final ImagePicker picker = ImagePicker();
     try {
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 80,
-      );
+      final photo = await ImageUtils.takeAndCompressPhoto(context);
       if (photo != null && mounted) {
-        final compressedPhoto = await _compressAndValidateImage(photo);
-        if (compressedPhoto != null && mounted) {
-          setState(() {
-            _selectedImages.add(compressedPhoto);
-          });
-        }
+        setState(() {
+          _selectedImages.add(photo);
+        });
       }
     } catch (e) {
       logger.e('Error taking photo: $e');
@@ -736,13 +657,6 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
       // 1. Upload images to Cloudinary (if any)
       List<String> imageUrls = [];
       if (_selectedImages.isNotEmpty) {
-        // Initialize Cloudinary with your cloud name and upload preset
-        final cloudinary = CloudinaryPublic(
-          'dchx2vghg',  // Replace with your cloud name
-          'location_images',  // Replace with your upload preset name
-          cache: false,
-        );
-        
         // Show progress message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -758,21 +672,19 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         
         // Upload each image
         for (var image in _selectedImages) {
-          // Create a CloudinaryFile from the image path
-          final cloudinaryFile = CloudinaryFile.fromFile(
-            image.path,
-            folder: 'locations', // Optional folder name in Cloudinary
-            resourceType: CloudinaryResourceType.Image,
+          final imageUrl = await ImageUtils.uploadToCloudinary(
+            image,
+            context: context,
+            cloudName: 'dchx2vghg',
+            uploadPreset: 'location_images',
+            folder: 'locations',
           );
           
-          // Upload to Cloudinary
-          final response = await cloudinary.uploadFile(cloudinaryFile);
-          
-          // Add secure URL to our list
-          imageUrls.add(response.secureUrl);
+          if (imageUrl != null) {
+            imageUrls.add(imageUrl);
+          }
         }
       }
-
       // Create a new location
       final newLocation = Location(
         id: DateTime.now().millisecondsSinceEpoch.toString(), // Simple ID

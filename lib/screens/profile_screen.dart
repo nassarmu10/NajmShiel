@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:map_explorer/screens/login_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:map_explorer/services/auth_service.dart';
 import 'package:map_explorer/providers/location_data_provider.dart';
