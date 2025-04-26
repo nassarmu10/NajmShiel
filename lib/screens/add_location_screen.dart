@@ -526,7 +526,6 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
               
             const SizedBox(height: 16),
               
-            // Location type dropdown
             DropdownButtonFormField<LocationType>(
               value: _selectedType,
               decoration: const InputDecoration(
@@ -551,6 +550,30 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                   case LocationType.city:
                     icon = Icons.location_city;
                     label = 'منطقة حضرية';
+                    break;
+                  case LocationType.barbecue:
+                    icon = Icons.outdoor_grill;
+                    label = 'أماكن شواء';
+                    break;
+                  case LocationType.family:
+                    icon = Icons.family_restroom;
+                    label = 'قعدة عائلية';
+                    break;
+                  case LocationType.viewpoint:
+                    icon = Icons.landscape;
+                    label = 'مطل';
+                    break;
+                  case LocationType.beach:
+                    icon = Icons.beach_access;
+                    label = 'شاطئ';
+                    break;
+                  case LocationType.hiking:
+                    icon = Icons.hiking;
+                    label = 'مسار مشي';
+                    break;
+                  case LocationType.camping:
+                    icon = Icons.fireplace;
+                    label = 'مخيم';
                     break;
                   case LocationType.other:
                     icon = Icons.place;

@@ -2,10 +2,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
 enum LocationType {
-  historical,
-  forest,
-  city,
-  other
+  historical,  // موقع تاريخي
+  forest,      // منطقة طبيعية
+  city,        // منطقة حضرية
+  barbecue,    // أماكن شواء
+  family,      // قعدة عائلية
+  viewpoint,   // مطل
+  beach,       // شاطئ
+  hiking,      // مسار مشي
+  camping,     // مخيم
+  other        // أخرى
 }
 
 class Location {
@@ -43,13 +49,25 @@ class Location {
   String get typeDisplayName {
     switch (type) {
       case LocationType.historical:
-        return 'Historical Site';
+        return 'موقع تاريخي';
       case LocationType.forest:
-        return 'Natural Area';
+        return 'منطقة طبيعية';
       case LocationType.city:
-        return 'Urban Area';
+        return 'منطقة حضرية';
+      case LocationType.barbecue:
+        return 'أماكن شواء';
+      case LocationType.family:
+        return 'قعدة عائلية';
+      case LocationType.viewpoint:
+        return 'مطل';
+      case LocationType.beach:
+        return 'شاطئ';
+      case LocationType.hiking:
+        return 'مسار مشي';
+      case LocationType.camping:
+        return 'مخيم';
       case LocationType.other:
-        return 'Other';
+        return 'أخرى';
     }
   }
 

@@ -23,6 +23,12 @@ class LocationDataProvider with ChangeNotifier {
   bool _showForests = true;
   bool _showCities = true;
   bool _showOther = true;
+  bool _showBarbecue = true;
+  bool _showFamily = true;
+  bool _showViewpoint = true;
+  bool _showBeach = true;
+  bool _showHiking = true;
+  bool _showCamping = true;
 
   LocationDataProvider() {
     // Load locations when provider is created
@@ -43,6 +49,12 @@ class LocationDataProvider with ChangeNotifier {
   bool get showForests => _showForests;
   bool get showCities => _showCities;
   bool get showOther => _showOther;
+  bool get showBarbecue => _showBarbecue;
+  bool get showFamily => _showFamily;
+  bool get showViewpoint => _showViewpoint;
+  bool get showBeach => _showBeach;
+  bool get showHiking => _showHiking;
+  bool get showCamping => _showCamping;
   String? get currentUserId => _currentUserId;
 
   // Set current user
@@ -81,12 +93,23 @@ class LocationDataProvider with ChangeNotifier {
           return _showForests;
         case LocationType.city:
           return _showCities;
+        case LocationType.barbecue:
+          return _showBarbecue;
+        case LocationType.family:
+          return _showFamily;
+        case LocationType.viewpoint:
+          return _showViewpoint;
+        case LocationType.beach:
+          return _showBeach;
+        case LocationType.hiking:
+          return _showHiking;
+        case LocationType.camping:
+          return _showCamping;
         case LocationType.other:
           return _showOther;
       }
     }).toList();
   }
-
   // Load locations from Firebase
   Future<void> _loadLocations() async {
     _isLoading = true;
@@ -212,6 +235,35 @@ class LocationDataProvider with ChangeNotifier {
     _showCities = !_showCities;
     notifyListeners();
   }
+  void toggleBarbecue() {
+    _showBarbecue = !_showBarbecue;
+    notifyListeners();
+  }
+
+  void toggleFamily() {
+    _showFamily = !_showFamily;
+    notifyListeners();
+  }
+
+  void toggleViewpoint() {
+    _showViewpoint = !_showViewpoint;
+    notifyListeners();
+  }
+
+  void toggleBeach() {
+    _showBeach = !_showBeach;
+    notifyListeners();
+  }
+
+  void toggleHiking() {
+    _showHiking = !_showHiking;
+    notifyListeners();
+  }
+
+  void toggleCamping() {
+    _showCamping = !_showCamping;
+    notifyListeners();
+  }
 
   void toggleOther() {
     _showOther = !_showOther;
@@ -219,11 +271,18 @@ class LocationDataProvider with ChangeNotifier {
   }
 
   void setAllFilters(bool value) {
-    _showHistorical = value;
-    _showForests = value;
-    _showCities = value;
-    _showOther = value;
-    notifyListeners();
+      _showHistorical = value;
+      _showForests = value;
+      _showCities = value;
+      _showBarbecue = value;
+      _showFamily = value;
+      _showViewpoint = value;
+      _showBeach = value;
+      _showHiking = value;
+      _showCamping = value;
+      _showOther = value;
+      notifyListeners();
+
   }
 
   // COMMENT METHODS

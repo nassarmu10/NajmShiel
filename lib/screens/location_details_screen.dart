@@ -452,19 +452,6 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
     }
   }
   
-  Color _getColorForType(LocationType type) {
-    switch (type) {
-      case LocationType.historical:
-        return Colors.brown;
-      case LocationType.forest:
-        return Colors.green;
-      case LocationType.city:
-        return Colors.blue;
-      case LocationType.other:
-        return Colors.purple;
-    }
-  }
-  
   IconData _getIconForType(LocationType type) {
     switch (type) {
       case LocationType.historical:
@@ -473,8 +460,46 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
         return Icons.forest;
       case LocationType.city:
         return Icons.location_city;
+      case LocationType.barbecue:
+        return Icons.outdoor_grill;
+      case LocationType.family:
+        return Icons.family_restroom;
+      case LocationType.viewpoint:
+        return Icons.landscape;
+      case LocationType.beach:
+        return Icons.beach_access;
+      case LocationType.hiking:
+        return Icons.hiking;
+      case LocationType.camping:
+        return Icons.fireplace;
       case LocationType.other:
         return Icons.place;
+    }
+  }
+
+  // Update the _getColorForType method
+  Color _getColorForType(LocationType type) {
+    switch (type) {
+      case LocationType.historical:
+        return Colors.brown;
+      case LocationType.forest:
+        return Colors.green;
+      case LocationType.city:
+        return Colors.blue;
+      case LocationType.barbecue:
+        return Colors.deepOrange;
+      case LocationType.family:
+        return Colors.pink;
+      case LocationType.viewpoint:
+        return Colors.indigo;
+      case LocationType.beach:
+        return Colors.amber;
+      case LocationType.hiking:
+        return Colors.teal;
+      case LocationType.camping:
+        return Colors.lightGreen;
+      case LocationType.other:
+        return Colors.purple;
     }
   }
 }

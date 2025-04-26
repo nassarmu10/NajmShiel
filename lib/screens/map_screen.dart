@@ -593,123 +593,234 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'تصفية المواقع',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.right,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Historical filter
-                      CheckboxListTile(
-                        title: Row(
-                          children: [
-                            Icon(Icons.history,
-                                color:
-                                    _getColorForType(LocationType.historical)),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'المواقع التاريخية',
-                              textAlign: TextAlign.right,
-                            ),
-                          ],
-                        ),
-                        value: locationProvider.showHistorical,
-                        onChanged: (value) =>
-                            locationProvider.toggleHistorical(),
-                        dense: true,
-                      ),
-
-                      // Forests filter
-                      CheckboxListTile(
-                        title: Row(
-                          children: [
-                            Icon(Icons.forest,
-                                color: _getColorForType(LocationType.forest)),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'المناطق الطبيعية',
-                              textAlign: TextAlign.right,
-                            ),
-                          ],
-                        ),
-                        value: locationProvider.showForests,
-                        onChanged: (value) => locationProvider.toggleForests(),
-                        dense: true,
-                      ),
-
-                      // Cities filter
-                      CheckboxListTile(
-                        title: Row(
-                          children: [
-                            Icon(Icons.location_city,
-                                color: _getColorForType(LocationType.city)),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'المدن والبلدات',
-                              textAlign: TextAlign.right,
-                            ),
-                          ],
-                        ),
-                        value: locationProvider.showCities,
-                        onChanged: (value) => locationProvider.toggleCities(),
-                        dense: true,
-                      ),
-
-                      // Other filter
-                      CheckboxListTile(
-                        title: Row(
-                          children: [
-                            Icon(Icons.place,
-                                color: _getColorForType(LocationType.other)),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'أماكن أخرى',
-                              textAlign: TextAlign.right,
-                            ),
-                          ],
-                        ),
-                        value: locationProvider.showOther,
-                        onChanged: (value) => locationProvider.toggleOther(),
-                        dense: true,
-                      ),
-
-                      // Actions
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
+                          const Expanded(
+                            child: Text(
+                              'تصفية المواقع',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+
+                          // Quick action buttons
                           TextButton(
-                            onPressed: () =>
-                                locationProvider.setAllFilters(true),
-                            child: const Text('عرض الكل'),
+                            onPressed: () {
+                              setState(() {
+                                locationProvider.setAllFilters(true);
+                              });
+                            },
+                            child: const Text('الكل'),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('إغلاق'),
+                            onPressed: () {
+                              setState(() {
+                                locationProvider.setAllFilters(false);
+                              });
+                            },
+                            child: const Text('لا شيء'),
                           ),
                         ],
                       ),
-                    ],
+                  const SizedBox(height: 16),
+                  // Historical filter
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(_getIconForType(LocationType.historical),
+                            color:
+                                _getColorForType(LocationType.historical)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'المواقع التاريخية',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showHistorical,
+                    onChanged: (value) =>
+                        locationProvider.toggleHistorical(),
+                    dense: true,
                   ),
-                ));
+
+                  // Forests filter
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(_getIconForType(LocationType.forest),
+                            color: _getColorForType(LocationType.forest)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'المناطق الطبيعية',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showForests,
+                    onChanged: (value) => locationProvider.toggleForests(),
+                    dense: true,
+                  ),
+
+                  // Cities filter
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(_getIconForType(LocationType.city),
+                            color: _getColorForType(LocationType.city)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'المدن والبلدات',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showCities,
+                    onChanged: (value) => locationProvider.toggleCities(),
+                    dense: true,
+                  ),
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(_getIconForType(LocationType.barbecue),
+                            color: _getColorForType(LocationType.barbecue)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'أماكن شواء',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showBarbecue,
+                    onChanged: (value) => locationProvider.toggleBarbecue,
+                    dense: true,
+                  ),
+                  
+                  // NEW: Family filter
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(Icons.family_restroom,
+                            color: _getColorForType(LocationType.family)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'قعدة عائلية',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showFamily,
+                    onChanged: (value) => locationProvider.toggleFamily(),
+                    dense: true,
+                  ),
+                  
+                  // NEW: Viewpoint filter
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(_getIconForType(LocationType.viewpoint),
+                            color: _getColorForType(LocationType.viewpoint)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'مطل',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showViewpoint,
+                    onChanged: (value) => locationProvider.toggleViewpoint(),
+                    dense: true,
+                  ),
+                  
+                  // NEW: Beach filter
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(_getIconForType(LocationType.beach),
+                            color: _getColorForType(LocationType.beach)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'شاطئ',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showBeach,
+                    onChanged: (value) => locationProvider.toggleBeach(),
+                    dense: true,
+                  ),
+                  
+                  // NEW: Hiking filter
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(_getIconForType(LocationType.hiking),
+                            color: _getColorForType(LocationType.hiking)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'مسار مشي',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showHiking,
+                    onChanged: (value) => locationProvider.toggleHiking(),
+                    dense: true,
+                  ),
+                  
+                  // NEW: Camping filter
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(_getIconForType(LocationType.camping),
+                            color: _getColorForType(LocationType.camping)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'مخيم',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showCamping,
+                    onChanged: (value) => locationProvider.toggleCamping(),
+                    dense: true,
+                  ),
+
+                  // Other filter
+                  CheckboxListTile(
+                    title: Row(
+                      children: [
+                        Icon(_getIconForType(LocationType.other),
+                            color: _getColorForType(LocationType.other)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'أماكن أخرى',
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                    value: locationProvider.showOther,
+                    onChanged: (value) => locationProvider.toggleOther(),
+                    dense: true,
+                  ),
+
+                  // Actions
+                  Center(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('تطبيق الفلتر'),
+                    ),
+                  ),
+                ],
+              ),
+            ));
           },
         );
       },
     );
-  }
-
-  Color _getColorForType(LocationType type) {
-    switch (type) {
-      case LocationType.historical:
-        return Colors.brown;
-      case LocationType.forest:
-        return Colors.green;
-      case LocationType.city:
-        return Colors.blue;
-      case LocationType.other:
-        return Colors.purple;
-    }
   }
 
   IconData _getIconForType(LocationType type) {
@@ -720,8 +831,46 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         return Icons.forest;
       case LocationType.city:
         return Icons.location_city;
+      case LocationType.barbecue:
+        return Icons.outdoor_grill;
+      case LocationType.family:
+        return Icons.family_restroom;
+      case LocationType.viewpoint:
+        return Icons.landscape;
+      case LocationType.beach:
+        return Icons.beach_access;
+      case LocationType.hiking:
+        return Icons.hiking;
+      case LocationType.camping:
+        return Icons.fireplace;
       case LocationType.other:
         return Icons.place;
+    }
+  }
+
+  // Update the _getColorForType method
+  Color _getColorForType(LocationType type) {
+    switch (type) {
+      case LocationType.historical:
+        return Colors.brown;
+      case LocationType.forest:
+        return Colors.green;
+      case LocationType.city:
+        return Colors.blue;
+      case LocationType.barbecue:
+        return Colors.deepOrange;
+      case LocationType.family:
+        return Colors.pink;
+      case LocationType.viewpoint:
+        return Colors.indigo;
+      case LocationType.beach:
+        return Colors.amber;
+      case LocationType.hiking:
+        return Colors.teal;
+      case LocationType.camping:
+        return Colors.lightGreen;
+      case LocationType.other:
+        return Colors.purple;
     }
   }
 }
