@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:map_explorer/logger.dart';
 import 'package:map_explorer/utils/image_utils.dart';
+import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:provider/provider.dart';
 import '../models/location.dart';
 import '../providers/location_data_provider.dart';
@@ -526,6 +527,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
               
             const SizedBox(height: 16),
               
+            // Location type dropdown
             DropdownButtonFormField<LocationType>(
               value: _selectedType,
               decoration: const InputDecoration(
@@ -534,64 +536,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                 prefixIcon: Icon(Icons.category),
                 alignLabelWithHint: true,
               ),
-              items: LocationType.values.map((type) {
-                IconData icon;
-                String label;
-                  
-                switch (type) {
-                  case LocationType.historical:
-                    icon = Icons.history;
-                    label = 'موقع تاريخي';
-                    break;
-                  case LocationType.forest:
-                    icon = Icons.forest;
-                    label = 'منطقة طبيعية';
-                    break;
-                  case LocationType.city:
-                    icon = Icons.location_city;
-                    label = 'منطقة حضرية';
-                    break;
-                  case LocationType.barbecue:
-                    icon = Icons.outdoor_grill;
-                    label = 'أماكن شواء';
-                    break;
-                  case LocationType.family:
-                    icon = Icons.family_restroom;
-                    label = 'قعدة عائلية';
-                    break;
-                  case LocationType.viewpoint:
-                    icon = Icons.landscape;
-                    label = 'مطل';
-                    break;
-                  case LocationType.beach:
-                    icon = Icons.beach_access;
-                    label = 'شاطئ';
-                    break;
-                  case LocationType.hiking:
-                    icon = Icons.hiking;
-                    label = 'مسار مشي';
-                    break;
-                  case LocationType.camping:
-                    icon = Icons.fireplace;
-                    label = 'مخيم';
-                    break;
-                  case LocationType.other:
-                    icon = Icons.place;
-                    label = 'أخرى';
-                    break;
-                }
-                  
-                return DropdownMenuItem(
-                  value: type,
-                  child: Row(
-                    children: [
-                      Icon(icon),
-                      const SizedBox(width: 8),
-                      Text(label),
-                    ],
-                  ),
-                );
-              }).toList(),
+              items: LocationTypeUtils.getDropdownItems(),
               onChanged: (value) {
                 if (value != null && mounted) {
                   setState(() {

@@ -1,17 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
+import '../utils/location_type_utils.dart';
 
 enum LocationType {
-  historical,  // موقع تاريخي
-  forest,      // منطقة طبيعية
-  city,        // منطقة حضرية
-  barbecue,    // أماكن شواء
-  family,      // قعدة عائلية
-  viewpoint,   // مطل
-  beach,       // شاطئ
-  hiking,      // مسار مشي
-  camping,     // مخيم
-  other        // أخرى
+  historical,
+  forest,
+  city,
+  barbecue,
+  family,
+  viewpoint,
+  beach,
+  hiking,
+  camping,
+  other
 }
 
 class Location {
@@ -45,31 +46,8 @@ class Location {
   // Convenience getter for GeoPoint
   GeoPoint get geoPoint => GeoPoint(latitude, longitude);
 
-  // Display name for the type
-  String get typeDisplayName {
-    switch (type) {
-      case LocationType.historical:
-        return 'موقع تاريخي';
-      case LocationType.forest:
-        return 'منطقة طبيعية';
-      case LocationType.city:
-        return 'منطقة حضرية';
-      case LocationType.barbecue:
-        return 'أماكن شواء';
-      case LocationType.family:
-        return 'قعدة عائلية';
-      case LocationType.viewpoint:
-        return 'مطل';
-      case LocationType.beach:
-        return 'شاطئ';
-      case LocationType.hiking:
-        return 'مسار مشي';
-      case LocationType.camping:
-        return 'مخيم';
-      case LocationType.other:
-        return 'أخرى';
-    }
-  }
+  // Display name for the type, uses utility class
+  String get typeDisplayName => LocationTypeUtils.getDisplayName(type);
 
   // Create from Firestore document
   factory Location.fromFirestore(DocumentSnapshot doc) {

@@ -4,6 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:map_explorer/logger.dart';
 import 'package:map_explorer/screens/profile_screen.dart';
+import 'package:map_explorer/utils/location_type_utils.dart';
+import 'package:map_explorer/widgets/filter_option_widget.dart';
 import 'package:provider/provider.dart';
 
 import '../models/location.dart';
@@ -406,13 +408,34 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     children: [
+                      // TileLayer(
+                      //   urlTemplate:
+                      //       'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+                      //   subdomains: const ['a', 'b', 'c'],
+                      //   userAgentPackageName: 'com.najmshiel.map',
+                      //   maxZoom: 18,
+                      //   retinaMode: RetinaMode.isHighDensity(context),
+                      // ),
+                      // TileLayer(
+                      //   urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                      //   subdomains: const ['a', 'b', 'c'],
+                      //   userAgentPackageName: 'com.najmshiel.map',
+                      //   maxZoom: 17,
+                      //   retinaMode: RetinaMode.isHighDensity(context),
+                      //   additionalOptions: const {
+                      //     // 'attribution': '© OpenTopoMap (CC-BY-SA)',
+                      //     "attribution": "Map data: © <a href=\"https://openstreetmap.org/copyright\">OpenStreetMap</a> contributors, SRTM | Map display: © <a href=\"http://opentopomap.org\">OpenTopoMap</a> (<a href=\"https://creativecommons.org/licenses/by-sa/3.0/\">CC-BY-SA</a>)"
+                      //   },
+                      // ),
                       TileLayer(
-                        urlTemplate:
-                            'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
-                        subdomains: const ['a', 'b', 'c'],
+                        urlTemplate: 'https://israelhiking.osm.org.il/English/Tiles/{z}/{x}/{y}.png',
+                        // urlTemplate: 'https://israelhiking.osm.org.il/Tiles/{z}/{x}/{y}.png',
+                        maxZoom: 20,
                         userAgentPackageName: 'com.najmshiel.map',
-                        maxZoom: 18,
                         retinaMode: RetinaMode.isHighDensity(context),
+                        additionalOptions: const {
+                          'attribution': '© Israel Hiking Map contributors',
+                        },
                       ),
 
                       // User location marker (if available)
@@ -459,7 +482,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                       width: _circleSize/5,
                                       // padding: const EdgeInsets.all(1),
                                       decoration: BoxDecoration(
-                                        color: _getColorForType(location.type),
+                                        color: LocationTypeUtils.getColor(location.type),
                                         shape: BoxShape.circle,
                                         boxShadow: [
                                           BoxShadow(
@@ -471,7 +494,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                         ],
                                       ),
                                       child: Icon(
-                                        _getIconForType(location.type),
+                                        LocationTypeUtils.getIcon(location.type),
                                         color: Colors.white,
                                         size: iconSize,
                                       ),
@@ -625,183 +648,82 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       ),
                   const SizedBox(height: 16),
                   // Historical filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(_getIconForType(LocationType.historical),
-                            color:
-                                _getColorForType(LocationType.historical)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'المواقع التاريخية',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showHistorical,
+                  FilterOptionWidget(
+                    locationType: LocationType.historical,
+                    isSelected: locationProvider.showHistorical,
                     onChanged: (value) =>
                         locationProvider.toggleHistorical(),
-                    dense: true,
                   ),
 
                   // Forests filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(_getIconForType(LocationType.forest),
-                            color: _getColorForType(LocationType.forest)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'المناطق الطبيعية',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showForests,
-                    onChanged: (value) => locationProvider.toggleForests(),
-                    dense: true,
+                  FilterOptionWidget(
+                    locationType: LocationType.forest,
+                    isSelected: locationProvider.showForests,
+                    onChanged: (value) =>
+                        locationProvider.toggleForests(),
                   ),
 
                   // Cities filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(_getIconForType(LocationType.city),
-                            color: _getColorForType(LocationType.city)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'المدن والبلدات',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showCities,
-                    onChanged: (value) => locationProvider.toggleCities(),
-                    dense: true,
-                  ),
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(_getIconForType(LocationType.barbecue),
-                            color: _getColorForType(LocationType.barbecue)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'أماكن شواء',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showBarbecue,
-                    onChanged: (value) => locationProvider.toggleBarbecue,
-                    dense: true,
+                  FilterOptionWidget(
+                    locationType: LocationType.city,
+                    isSelected: locationProvider.showCities,
+                    onChanged: (value) =>
+                        locationProvider.toggleCities(),
                   ),
                   
-                  // NEW: Family filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(Icons.family_restroom,
-                            color: _getColorForType(LocationType.family)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'قعدة عائلية',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showFamily,
-                    onChanged: (value) => locationProvider.toggleFamily(),
-                    dense: true,
+                  FilterOptionWidget(
+                    locationType: LocationType.barbecue,
+                    isSelected: locationProvider.showBarbecue,
+                    onChanged: (value) =>
+                        locationProvider.toggleBarbecue(),
                   ),
                   
-                  // NEW: Viewpoint filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(_getIconForType(LocationType.viewpoint),
-                            color: _getColorForType(LocationType.viewpoint)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'مطل',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showViewpoint,
-                    onChanged: (value) => locationProvider.toggleViewpoint(),
-                    dense: true,
+                  // Family filter
+                  FilterOptionWidget(
+                    locationType: LocationType.family,
+                    isSelected: locationProvider.showFamily,
+                    onChanged: (value) =>
+                        locationProvider.toggleFamily(),
                   ),
                   
-                  // NEW: Beach filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(_getIconForType(LocationType.beach),
-                            color: _getColorForType(LocationType.beach)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'شاطئ',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showBeach,
-                    onChanged: (value) => locationProvider.toggleBeach(),
-                    dense: true,
+                  // Viewpoint filter
+                  FilterOptionWidget(
+                    locationType: LocationType.viewpoint,
+                    isSelected: locationProvider.showViewpoint,
+                    onChanged: (value) =>
+                        locationProvider.toggleViewpoint(),
                   ),
                   
-                  // NEW: Hiking filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(_getIconForType(LocationType.hiking),
-                            color: _getColorForType(LocationType.hiking)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'مسار مشي',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showHiking,
-                    onChanged: (value) => locationProvider.toggleHiking(),
-                    dense: true,
+                  // Beach filter
+                  FilterOptionWidget(
+                    locationType: LocationType.beach,
+                    isSelected: locationProvider.showBeach,
+                    onChanged: (value) =>
+                        locationProvider.toggleBeach(),
                   ),
-                  
-                  // NEW: Camping filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(_getIconForType(LocationType.camping),
-                            color: _getColorForType(LocationType.camping)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'مخيم',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showCamping,
-                    onChanged: (value) => locationProvider.toggleCamping(),
-                    dense: true,
+
+                  // Hiking filter
+                  FilterOptionWidget(
+                    locationType: LocationType.hiking,
+                    isSelected: locationProvider.showHiking,
+                    onChanged: (value) =>
+                        locationProvider.toggleHiking(),
+                  ),
+
+                  // Camping filter
+                  FilterOptionWidget(
+                    locationType: LocationType.camping,
+                    isSelected: locationProvider.showCamping,
+                    onChanged: (value) =>
+                        locationProvider.toggleCamping(),
                   ),
 
                   // Other filter
-                  CheckboxListTile(
-                    title: Row(
-                      children: [
-                        Icon(_getIconForType(LocationType.other),
-                            color: _getColorForType(LocationType.other)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'أماكن أخرى',
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    value: locationProvider.showOther,
-                    onChanged: (value) => locationProvider.toggleOther(),
-                    dense: true,
+                  FilterOptionWidget(
+                    locationType: LocationType.other,
+                    isSelected: locationProvider.showOther,
+                    onChanged: (value) =>
+                        locationProvider.toggleOther(),
                   ),
 
                   // Actions
@@ -823,54 +745,54 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     );
   }
 
-  IconData _getIconForType(LocationType type) {
-    switch (type) {
-      case LocationType.historical:
-        return Icons.history;
-      case LocationType.forest:
-        return Icons.forest;
-      case LocationType.city:
-        return Icons.location_city;
-      case LocationType.barbecue:
-        return Icons.outdoor_grill;
-      case LocationType.family:
-        return Icons.family_restroom;
-      case LocationType.viewpoint:
-        return Icons.landscape;
-      case LocationType.beach:
-        return Icons.beach_access;
-      case LocationType.hiking:
-        return Icons.hiking;
-      case LocationType.camping:
-        return Icons.fireplace;
-      case LocationType.other:
-        return Icons.place;
-    }
-  }
+  // IconData _getIconForType(LocationType type) {
+  //   switch (type) {
+  //     case LocationType.historical:
+  //       return Icons.history;
+  //     case LocationType.forest:
+  //       return Icons.forest;
+  //     case LocationType.city:
+  //       return Icons.location_city;
+  //     case LocationType.barbecue:
+  //       return Icons.outdoor_grill;
+  //     case LocationType.family:
+  //       return Icons.family_restroom;
+  //     case LocationType.viewpoint:
+  //       return Icons.landscape;
+  //     case LocationType.beach:
+  //       return Icons.beach_access;
+  //     case LocationType.hiking:
+  //       return Icons.hiking;
+  //     case LocationType.camping:
+  //       return Icons.fireplace;
+  //     case LocationType.other:
+  //       return Icons.place;
+  //   }
+  // }
 
-  // Update the _getColorForType method
-  Color _getColorForType(LocationType type) {
-    switch (type) {
-      case LocationType.historical:
-        return Colors.brown;
-      case LocationType.forest:
-        return Colors.green;
-      case LocationType.city:
-        return Colors.blue;
-      case LocationType.barbecue:
-        return Colors.deepOrange;
-      case LocationType.family:
-        return Colors.pink;
-      case LocationType.viewpoint:
-        return Colors.indigo;
-      case LocationType.beach:
-        return Colors.amber;
-      case LocationType.hiking:
-        return Colors.teal;
-      case LocationType.camping:
-        return Colors.lightGreen;
-      case LocationType.other:
-        return Colors.purple;
-    }
-  }
+  // // Update the _getColorForType method
+  // Color _getColorForType(LocationType type) {
+  //   switch (type) {
+  //     case LocationType.historical:
+  //       return Colors.brown;
+  //     case LocationType.forest:
+  //       return Colors.green;
+  //     case LocationType.city:
+  //       return Colors.blue;
+  //     case LocationType.barbecue:
+  //       return Colors.deepOrange;
+  //     case LocationType.family:
+  //       return Colors.pink;
+  //     case LocationType.viewpoint:
+  //       return Colors.indigo;
+  //     case LocationType.beach:
+  //       return Colors.amber;
+  //     case LocationType.hiking:
+  //       return Colors.teal;
+  //     case LocationType.camping:
+  //       return Colors.lightGreen;
+  //     case LocationType.other:
+  //       return Colors.purple;
+  //   }
+  // }
 }

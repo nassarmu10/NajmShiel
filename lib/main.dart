@@ -8,7 +8,6 @@ import 'providers/location_data_provider.dart';
 import 'screens/map_screen.dart';
 import 'screens/add_location_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
 import 'logger.dart';
 

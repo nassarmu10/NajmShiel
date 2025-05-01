@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:map_explorer/widgets/comment_list_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -167,14 +168,14 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: _getColorForType(location.type),
+                          color: LocationTypeUtils.getColor(location.type),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _getIconForType(location.type),
+                              LocationTypeUtils.getIcon(location.type),
                               color: Colors.white,
                               size: 16,
                             ),
@@ -320,7 +321,7 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                                       height: 40, // Fixed size for detail view
                                       width: 10,
                                       decoration: BoxDecoration(
-                                        color: _getColorForType(location.type),
+                                        color: LocationTypeUtils.getColor(location.type),
                                         shape: BoxShape.circle,
                                         boxShadow: [
                                           BoxShadow(
@@ -331,7 +332,7 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                                         ],
                                       ),
                                       child: Icon(
-                                        _getIconForType(location.type),
+                                        LocationTypeUtils.getIcon(location.type),
                                         color: Colors.white,
                                         size: 20, // Icon is smaller than container
                                       ),
@@ -449,57 +450,6 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
           ),
         );
       }
-    }
-  }
-  
-  IconData _getIconForType(LocationType type) {
-    switch (type) {
-      case LocationType.historical:
-        return Icons.history;
-      case LocationType.forest:
-        return Icons.forest;
-      case LocationType.city:
-        return Icons.location_city;
-      case LocationType.barbecue:
-        return Icons.outdoor_grill;
-      case LocationType.family:
-        return Icons.family_restroom;
-      case LocationType.viewpoint:
-        return Icons.landscape;
-      case LocationType.beach:
-        return Icons.beach_access;
-      case LocationType.hiking:
-        return Icons.hiking;
-      case LocationType.camping:
-        return Icons.fireplace;
-      case LocationType.other:
-        return Icons.place;
-    }
-  }
-
-  // Update the _getColorForType method
-  Color _getColorForType(LocationType type) {
-    switch (type) {
-      case LocationType.historical:
-        return Colors.brown;
-      case LocationType.forest:
-        return Colors.green;
-      case LocationType.city:
-        return Colors.blue;
-      case LocationType.barbecue:
-        return Colors.deepOrange;
-      case LocationType.family:
-        return Colors.pink;
-      case LocationType.viewpoint:
-        return Colors.indigo;
-      case LocationType.beach:
-        return Colors.amber;
-      case LocationType.hiking:
-        return Colors.teal;
-      case LocationType.camping:
-        return Colors.lightGreen;
-      case LocationType.other:
-        return Colors.purple;
     }
   }
 }
