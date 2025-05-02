@@ -274,8 +274,42 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('نجم سهيل'),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.end, // Align to right for Arabic
+          children: [
+            const Text(
+              'نجم سهيل',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 34,
+              width: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/applogononame.jpg',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
+          // Note: In RTL layouts, 'actions' appear on the left side
           IconButton(
             icon: const Icon(Icons.person),
             onPressed: () {
@@ -306,6 +340,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             tooltip: 'تصفية المواقع',
           ),
         ],
+        elevation: 2,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blue.shade700,
       ),
       body: _buildMainContent(),
       floatingActionButton: FloatingActionButton(
@@ -467,41 +504,66 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       // Location markers
                       MarkerLayer(
                         markers: locations
-                            .map((location) {
-                              final markerSize = _getMarkerSize(_currentZoom);
-                              final iconSize = markerSize * 0.7;
-                              return  Marker(
-                                width: markerSize,
-                                height: markerSize,
-                                  point: location.latLng,
-                                  child: GestureDetector(
-                                    onTap: () =>
-                                        _showLocationDetails(location.id),
-                                    child: Container(
-                                      height: _circleSize/5,
-                                      width: _circleSize/5,
-                                      // padding: const EdgeInsets.all(1),
-                                      decoration: BoxDecoration(
-                                        color: LocationTypeUtils.getColor(location.type),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.2),
-                                            blurRadius: 2,
-                                            spreadRadius: 0.5,
+                          .map((location) {
+                            final markerSize = _getMarkerSize(_currentZoom);
+                            return Marker(
+                              width: markerSize,
+                              height: markerSize,
+                              point: location.latLng,
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween<double>(begin: 0.0, end: 1.0),
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.elasticOut,
+                                builder: (context, value, child) {
+                                  return Transform.scale(
+                                    scale: value,
+                                    child: Stack(
+                                      children: [
+                                        // Shadow effect
+                                        Container(
+                                          height: markerSize,
+                                          width: markerSize,
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(0.2),
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.2),
+                                                blurRadius: 6,
+                                                spreadRadius: 1,
+                                              ),
+                                            ],
                                           ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        LocationTypeUtils.getIcon(location.type),
-                                        color: Colors.white,
-                                        size: iconSize,
-                                      ),
+                                        ),
+                                        // Marker background
+                                        Container(
+                                          height: markerSize - 2,
+                                          width: markerSize - 2,
+                                          decoration: BoxDecoration(
+                                            color: LocationTypeUtils.getColor(location.type),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: GestureDetector(
+                                            onTap: () => _showLocationDetails(location.id),
+                                            child: Icon(
+                                              LocationTypeUtils.getIcon(location.type),
+                                              color: Colors.white,
+                                              size: markerSize * 0.6,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                );})
-                            .toList(),
+                                  );
+                                },
+                              ),
+                            );
+                          })
+                          .toList(),
                       ),
                     ],
                   );
@@ -716,6 +778,29 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     isSelected: locationProvider.showCamping,
                     onChanged: (value) =>
                         locationProvider.toggleCamping(),
+                  ),
+                  // Water Spring filter
+                  FilterOptionWidget(
+                    locationType: LocationType.waterSpring,
+                    isSelected: locationProvider.showWaterSpring,
+                    onChanged: (value) =>
+                        locationProvider.toggleWaterSpring(),
+                  ),
+
+                  // Mosque filter
+                  FilterOptionWidget(
+                    locationType: LocationType.mosque,
+                    isSelected: locationProvider.showMosque,
+                    onChanged: (value) =>
+                        locationProvider.toggleMosque(),
+                  ),
+
+                  // Church filter
+                  FilterOptionWidget(
+                    locationType: LocationType.church,
+                    isSelected: locationProvider.showChurch,
+                    onChanged: (value) =>
+                        locationProvider.toggleChurch(),
                   ),
 
                   // Other filter

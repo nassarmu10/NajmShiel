@@ -24,6 +24,12 @@ class LocationTypeUtils {
         return 'مسار مشي';
       case LocationType.camping:
         return 'مخيم';
+      case LocationType.waterSpring:
+        return 'عين ماء';
+      case LocationType.mosque:
+        return 'مسجد';
+      case LocationType.church:
+        return 'كنيسة';
       case LocationType.other:
         return 'أخرى';
     }
@@ -50,6 +56,12 @@ class LocationTypeUtils {
         return Icons.hiking;
       case LocationType.camping:
         return Icons.fireplace;
+        case LocationType.waterSpring:
+        return Icons.water_drop;
+      case LocationType.mosque:
+        return Icons.mosque;
+      case LocationType.church:
+        return Icons.church;
       case LocationType.other:
         return Icons.place;
     }
@@ -76,6 +88,12 @@ class LocationTypeUtils {
         return Colors.teal;
       case LocationType.camping:
         return Colors.lightGreen;
+         case LocationType.waterSpring:
+        return Colors.lightBlue;
+      case LocationType.mosque:
+        return Colors.green.shade800;
+      case LocationType.church:
+        return Colors.purple.shade700;
       case LocationType.other:
         return Colors.purple;
     }

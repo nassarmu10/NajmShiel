@@ -8,6 +8,7 @@ import 'providers/location_data_provider.dart';
 import 'screens/map_screen.dart';
 import 'screens/add_location_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
 import 'logger.dart';
 
@@ -79,32 +80,128 @@ class MyApp extends StatelessWidget {
   final AuthService authService;
   const MyApp({Key? key, required this.authService}) : super(key: key);
 
+  // @override
+  // Widget build(BuildContext context) {
+  //   return MultiProvider(
+  //     providers: [
+  //       // Create provider without loading data immediately
+  //       ChangeNotifierProvider(create: (context) => LocationDataProvider()),
+  //       // Add auth service provider
+  //       Provider<AuthService>.value(value: authService),
+  //     ],
+  //     child: MaterialApp(
+  //       title: 'نجم سهيل',
+  //       debugShowCheckedModeBanner: false,
+  //       theme: ThemeData(
+  //         primarySwatch: Colors.blue,
+  //         visualDensity: VisualDensity.adaptivePlatformDensity,
+  //         useMaterial3: true,
+  //       ),
+  //       home: AuthWrapper(),
+  //       routes: {
+  //         '/add_location': (context) => const AddLocationScreen(),
+  //       },
+  //       onGenerateRoute: (settings) {
+  //         if (settings.name == '/location_details') {
+  //           final locationId = settings.arguments as String;
+  //           return MaterialPageRoute(
+  //             builder: (context) => LocationDetailsScreen(locationId: locationId),
+  //           );
+  //         }
+  //         return null;
+  //       },
+  //     ),
+  //   );
+  // }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         // Create provider without loading data immediately
         ChangeNotifierProvider(create: (context) => LocationDataProvider()),
-        // Add auth service provider
+        // Add auth service provider - using the existing authService from constructor
         Provider<AuthService>.value(value: authService),
       ],
       child: MaterialApp(
         title: 'نجم سهيل',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
+          primaryColor: Colors.blue.shade700,
           primarySwatch: Colors.blue,
           visualDensity: VisualDensity.adaptivePlatformDensity,
           useMaterial3: true,
+          // Theme for text
+          textTheme: Theme.of(context).textTheme.apply(
+            bodyColor: Colors.black87,
+            displayColor: Colors.black87,
+          ),
+          appBarTheme: AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.blue.shade700,
+            elevation: 2,
+            centerTitle: false,
+            titleTextStyle: const TextStyle(
+              color: Colors.black87,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+            iconTheme: IconThemeData(
+              color: Colors.blue.shade700,
+            ),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade400),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
+          cardTheme: CardTheme(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 2,
+          ),
         ),
-        home: AuthWrapper(),
+        // Note: MaterialApp doesn't have a textDirection property
+        // Instead we'll use a Directionality widget in specific screens
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: AuthWrapper(),
+        ),
         routes: {
-          '/add_location': (context) => const AddLocationScreen(),
+          '/add_location': (context) => const Directionality(
+            textDirection: TextDirection.rtl,
+            child: AddLocationScreen(),
+          ),
         },
         onGenerateRoute: (settings) {
           if (settings.name == '/location_details') {
             final locationId = settings.arguments as String;
             return MaterialPageRoute(
-              builder: (context) => LocationDetailsScreen(locationId: locationId),
+              builder: (context) => Directionality(
+                textDirection: TextDirection.rtl,
+                child: LocationDetailsScreen(locationId: locationId),
+              ),
             );
           }
           return null;

@@ -558,8 +558,8 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
               ),
               maxLines: 3,
               textAlign: TextAlign.right,
-              validator: (value) => 
-                value == null || value.isEmpty ? 'الرجاء إدخال وصف' : null,
+              // validator: (value) => 
+              //   value == null || value.isEmpty ? 'الرجاء إدخال وصف' : null,
               onChanged: (value) => _description = value,
             ),
               
@@ -602,7 +602,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'يرجى ملء جميع الحقول وتحديد موقع على الخريطة.',
+            'يرجى ملء جميع الحقول المطلوبة وتحديد موقع على الخريطة.',
             textAlign: TextAlign.right,
           ),
           backgroundColor: Colors.red,

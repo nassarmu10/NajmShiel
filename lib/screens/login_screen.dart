@@ -166,10 +166,30 @@ class LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // App logo/icon
-              const Icon(
-                Icons.map,
-                size: 80,
-                color: Colors.blue,
+              Container(
+                height: 120,
+                width: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.3),
+                      spreadRadius: 5,
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/applogononame.jpg',
+                      fit: BoxFit.cover,
+                      width: 110,
+                      height: 110,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
               // App title

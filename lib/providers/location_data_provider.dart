@@ -29,6 +29,9 @@ class LocationDataProvider with ChangeNotifier {
   bool _showBeach = true;
   bool _showHiking = true;
   bool _showCamping = true;
+  bool _showWaterSpring = true;
+  bool _showMosque = true;
+  bool _showChurch = true;
 
   LocationDataProvider() {
     // Load locations when provider is created
@@ -56,6 +59,9 @@ class LocationDataProvider with ChangeNotifier {
   bool get showHiking => _showHiking;
   bool get showCamping => _showCamping;
   String? get currentUserId => _currentUserId;
+  bool get showWaterSpring => _showWaterSpring;
+  bool get showMosque => _showMosque;
+  bool get showChurch => _showChurch;
 
   // Set current user
   void setCurrentUserId(String userId, {bool notify = true}) {
@@ -105,6 +111,12 @@ class LocationDataProvider with ChangeNotifier {
           return _showHiking;
         case LocationType.camping:
           return _showCamping;
+        case LocationType.waterSpring:
+          return _showWaterSpring;
+        case LocationType.mosque:
+          return _showMosque;
+        case LocationType.church:
+          return _showChurch;
         case LocationType.other:
           return _showOther;
       }
@@ -265,6 +277,21 @@ class LocationDataProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleWaterSpring() {
+    _showWaterSpring = !_showWaterSpring;
+    notifyListeners();
+  }
+
+  void toggleMosque() {
+    _showMosque = !_showMosque;
+    notifyListeners();
+  }
+
+  void toggleChurch() {
+    _showChurch = !_showChurch;
+    notifyListeners();
+  }
+
   void toggleOther() {
     _showOther = !_showOther;
     notifyListeners();
@@ -280,6 +307,9 @@ class LocationDataProvider with ChangeNotifier {
       _showBeach = value;
       _showHiking = value;
       _showCamping = value;
+      _showWaterSpring = value;
+      _showMosque = value;
+      _showChurch = value;
       _showOther = value;
       notifyListeners();
 

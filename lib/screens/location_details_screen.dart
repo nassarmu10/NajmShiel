@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:intl/intl.dart';
 import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:map_explorer/widgets/comment_list_widget.dart';
 import 'package:provider/provider.dart';
@@ -147,7 +148,7 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                           ),
                           SizedBox(height: 8),
                           Text(
-                            'No images available',
+                            'لا توجد صور',
                             style: TextStyle(
                               color: Colors.grey,
                               fontStyle: FontStyle.italic,
@@ -162,27 +163,38 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start, // RTL alignment
                     children: [
-                      // Type badge
+                      // Type badge with enhanced styling
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: LocationTypeUtils.getColor(location.type),
                           borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: LocationTypeUtils.getColor(location.type).withOpacity(0.4),
+                              spreadRadius: 1,
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            Text(
+                              location.typeDisplayName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
                             Icon(
                               LocationTypeUtils.getIcon(location.type),
                               color: Colors.white,
                               size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              location.typeDisplayName,
-                              style: const TextStyle(color: Colors.white),
                             ),
                           ],
                         ),
@@ -190,34 +202,81 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                       
                       const SizedBox(height: 16),
                       
-                      // Description
-                      const Text(
-                        'Description',
-                        style: TextStyle(
-                          fontSize: 18, 
+                      // Name with enhanced styling
+                      Text(
+                        location.name,
+                        style: const TextStyle(
+                          fontSize: 24, 
                           fontWeight: FontWeight.bold,
                         ),
+                        textAlign: TextAlign.right,
                       ),
-                      const SizedBox(height: 8),
+                      
+                      // Creator info with enhanced styling
+                      if (location.creatorName != null && location.creatorName!.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(
+                                location.creatorName!,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'تمت الإضافة بواسطة:',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.person,
+                                size: 16,
+                                color: Colors.grey.shade600,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Date added
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            'تمت الإضافة بتاريخ ${DateFormat('MMM d, yyyy').format(location.createdAt)}',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 13,
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.calendar_today,
+                            size: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ],
+                      ),
+                      
+                      // Description
                       // Check if user is creator of this location
                       if (locationProvider.isLocationCreator(location))
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: _isEditingDescription 
-                                ? TextFormField(
-                                    controller: _descriptionController,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      hintText: 'Enter new description',
-                                    ),
-                                    maxLines: 3,
-                                  )
-                                : Text(
-                                    location.description,
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                            ),
                             IconButton(
                               icon: Icon(_isEditingDescription ? Icons.check : Icons.edit),
                               onPressed: () {
@@ -243,51 +302,80 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                                   });
                                 },
                               ),
+                            Expanded(
+                              child: _isEditingDescription 
+                                ? TextFormField(
+                                    controller: _descriptionController,
+                                    decoration: const InputDecoration(
+                                      border: OutlineInputBorder(),
+                                      hintText: 'أدخل وصفاً جديداً',
+                                    ),
+                                    maxLines: 3,
+                                    // textDirection: TextDirection.RTL,
+                                    textAlign: TextAlign.right,
+                                  )
+                                : Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      const Text(
+                                        'الوصف',
+                                        style: TextStyle(
+                                          fontSize: 18, 
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        location.description.isEmpty ? 'لا يوجد وصف' : location.description,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: location.description.isEmpty ? Colors.grey : Colors.black87,
+                                          fontStyle: location.description.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                        ),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                    ],
+                                  ),
+                            ),
                           ],
                         )
                       else
-                        Text(
-                          location.description,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Date added
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Added on ${DateFormat('MMM d, yyyy').format(location.createdAt)}',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ],
-                      ),
-                      if (location.creatorName != null && location.creatorName!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.person, size: 16, color: Colors.grey),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Added by ${location.creatorName}',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const SizedBox(height: 20),
+                            const Text(
+                              'الوصف',
+                              style: TextStyle(
+                                fontSize: 18, 
+                                fontWeight: FontWeight.bold,
                               ),
-                            ],
-                          ),
+                              textAlign: TextAlign.right,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              location.description.isEmpty ? 'لا يوجد وصف' : location.description,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: location.description.isEmpty ? Colors.grey : Colors.black87,
+                                fontStyle: location.description.isEmpty ? FontStyle.italic : FontStyle.normal,
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                          ],
                         ),
                       
                       const SizedBox(height: 16),
                       
                       // Coordinates text
                       Text(
-                        'Coordinates: ${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}',
+                        'الإحداثيات: ${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}',
                         style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                        textAlign: TextAlign.right,
                       ),
                       
-                      // NEW: Map showing the location
+                      // Map showing the location
                       Container(
                         height: 200,
                         width: double.infinity,
@@ -314,12 +402,12 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                               MarkerLayer(
                                 markers: [
                                   Marker(
-                                    height: 30, // Fixed size for detail view
+                                    height: 30,
                                     width: 30,
                                     point: location.latLng,
                                     child: Container(
-                                      height: 40, // Fixed size for detail view
-                                      width: 10,
+                                      height: 40,
+                                      width: 40,
                                       decoration: BoxDecoration(
                                         color: LocationTypeUtils.getColor(location.type),
                                         shape: BoxShape.circle,
@@ -334,7 +422,7 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                                       child: Icon(
                                         LocationTypeUtils.getIcon(location.type),
                                         color: Colors.white,
-                                        size: 20, // Icon is smaller than container
+                                        size: 20,
                                       ),
                                     ),
                                   ),
@@ -348,13 +436,13 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                   ),
                 ),
                 
-                // NEW: Vote section
+                // Vote section
                 VoteWidget(locationId: widget.locationId),
                 
                 // Divider
                 const Divider(thickness: 1),
                 
-                // NEW: Comments section
+                // Comments section
                 CommentsList(locationId: widget.locationId),
                 
                 // Add comment button/form
@@ -371,7 +459,7 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                       child: ElevatedButton.icon(
                         onPressed: _toggleAddComment,
                         icon: const Icon(Icons.add_comment),
-                        label: const Text('ADD A COMMENT'),
+                        label: const Text('أضف تعليق'),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),

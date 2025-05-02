@@ -12,6 +12,9 @@ enum LocationType {
   beach,
   hiking,
   camping,
+  waterSpring,
+  mosque,
+  church,
   other
 }
 

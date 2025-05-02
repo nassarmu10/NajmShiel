@@ -129,6 +129,9 @@ class CommentItem extends StatelessWidget {
   void _showOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) {
         return SafeArea(
           child: Column(
@@ -136,7 +139,7 @@ class CommentItem extends StatelessWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.edit),
-                title: const Text('تعديل التعليق'),
+                title: const Text('تعديل التعليق', textAlign: TextAlign.right),
                 onTap: () {
                   Navigator.pop(context); // Close bottom sheet
                   _showEditDialog(context);
@@ -145,7 +148,8 @@ class CommentItem extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
                 title: const Text('حذف التعليق', 
-                  style: TextStyle(color: Colors.red)),
+                  style: TextStyle(color: Colors.red),
+                  textAlign: TextAlign.right),
                 onTap: () {
                   Navigator.pop(context); // Close bottom sheet
                   _confirmDelete(context);
@@ -153,7 +157,7 @@ class CommentItem extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.close),
-                title: const Text('إلغاء'),
+                title: const Text('إلغاء', textAlign: TextAlign.right),
                 onTap: () => Navigator.pop(context),
               ),
             ],
@@ -162,6 +166,7 @@ class CommentItem extends StatelessWidget {
       },
     );
   }
+
 
   // Show edit dialog
   void _showEditDialog(BuildContext context) {
@@ -250,13 +255,49 @@ class CommentItem extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end, // RTL alignment
           children: [
             Row(
               children: [
+                // Add options menu for owner
+                if (isOwner)
+                  IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () => _showOptions(context),
+                    tooltip: 'خيارات',
+                  ),
+                
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end, // RTL alignment
+                    children: [
+                      Text(
+                        comment.username,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                      Text(
+                        formattedDate,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                
                 CircleAvatar(
                   backgroundColor: Colors.blue.shade200,
                   child: Text(
@@ -269,43 +310,16 @@ class CommentItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        comment.username,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        formattedDate,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Add options menu for owner
-                if (isOwner)
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () => _showOptions(context),
-                    tooltip: 'خيارات',
-                  ),
               ],
             ),
             const SizedBox(height: 12),
+            
             Text(
               comment.content,
               style: const TextStyle(fontSize: 15),
               textAlign: TextAlign.right,
             ),
+            
             if (comment.imageUrl != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12.0),
