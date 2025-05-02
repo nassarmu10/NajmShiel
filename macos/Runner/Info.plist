@@ -28,5 +28,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Najm Shiel requires GPS access</string>
 </dict>
 </plist>
