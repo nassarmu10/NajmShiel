@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -7,6 +9,9 @@ import 'package:map_explorer/screens/profile_screen.dart';
 import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:map_explorer/widgets/filter_option_widget.dart';
 import 'package:provider/provider.dart';
+import 'dart:math' as math;
+import 'package:flutter_compass/flutter_compass.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../models/location.dart';
 import '../providers/location_data_provider.dart';
@@ -31,6 +36,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   LatLng? _userLocation;
   String _errorMessage = '';
   double _currentZoom = 8.0;
+  Position? _currentPosition; // Store the full position object, not just LatLng
+  double _currentHeading = 0.0; // For storing the compass heading
+  StreamSubscription<Position>? _positionStreamSubscription; // For continuous updates
+  StreamSubscription<CompassEvent>? _compassSubscription;
+  bool _hasCompass = false;
 
   @override
   void initState() {
@@ -47,22 +57,97 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       }
     });
 
+    // Check if compass is available on this device
+  FlutterCompass.events?.first.then((_) {
+    if (mounted) {
+      setState(() {
+        _hasCompass = true;
+      });
+      _startCompassListener();
+    }
+  }).catchError((error) {
+    logger.e('Error checking compass availability: $error');
+    setState(() {
+      _hasCompass = false;
+    });
+  });
+
     // Load data first, then get location
     _initializeDataSafely().then((_) {
-      // Add a delay before getting location to ensure map is ready
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          _getCurrentLocation();
-        }
-      });
+    // Add a delay before getting location to ensure map is ready
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _getCurrentLocation();
+        // Start position stream for real-time updates
+        _startPositionStream();
+      }
     });
+  });
   }
 
   @override
   void dispose() {
+    // Cancel the position stream when disposing the screen
+    _positionStreamSubscription?.cancel();
+    _compassSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
+
+  // Start compass listener to get heading updates
+  void _startCompassListener() async {
+    // Request location permission for compass to work properly
+    final permission = await Permission.locationWhenInUse.request();
+    if (permission != PermissionStatus.granted) {
+      setState(() {
+        _hasCompass = false;
+      });
+      logger.e('Location permission denied for compass');
+      return;
+    }
+
+    // Subscribe to compass events
+    _compassSubscription = FlutterCompass.events?.listen((CompassEvent event) {
+      if (event.heading != null && mounted) {
+        setState(() {
+          _currentHeading = event.heading!;
+          logger.i('Compass heading: $_currentHeading');
+        });
+      }
+    });
+  }
+
+  // Method to start real-time location updates
+  Future<void> _startPositionStream() async {
+    // Check permission first
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied || 
+        permission == LocationPermission.deniedForever) {
+      return; // Can't start stream without permission
+    }
+
+    // Define location settings for the stream
+    const LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 5, // Update every 5 meters of movement
+      timeLimit: Duration(seconds: 2), // Limit for individual position requests
+    );
+
+    // Start the position stream
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position position) {
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+          _userLocation = LatLng(position.latitude, position.longitude);
+        });
+      }
+    }, onError: (error) {
+      logger.e('Error in position stream: $error');
+    });
+  }
+
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -80,17 +165,19 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Enhanced getCurrentLocation method with heading information
   Future<void> _getCurrentLocation() async {
     if (!mounted) return;
-    logger.i("here in _getCurrentLocation");
+    logger.i("Getting current location with heading");
 
     try {
       setState(() {
+        _isLoading = true; // Use existing _isLoading variable
         _isLocationReady = false;
       });
 
       // Check if location services are enabled
-      bool serviceEnabled = false;
+      bool serviceEnabled;
       try {
         serviceEnabled = await Geolocator.isLocationServiceEnabled().timeout(
           const Duration(seconds: 3),
@@ -100,22 +187,32 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         logger.e('Error checking location services: $e');
         serviceEnabled = false;
       }
+      
       if (!serviceEnabled) {
-        if (mounted) {
-          setState(() {
-            _isLocationReady = true;
-          });
-        }
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('خدمات الموقع معطلة. يرجى تمكينها في الإعدادات.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        setState(() {
+          _isLoading = false;
+          _isLocationReady = false;
+          _userLocation = defaultCenter; // Use existing defaultCenter
+        });
         return;
       }
-      // Check permission
+      
+      // Request permission
       LocationPermission permission;
       try {
         permission = await Geolocator.checkPermission().timeout(
           const Duration(seconds: 3),
           onTimeout: () => LocationPermission.denied,
         );
-
+        
         if (permission == LocationPermission.denied) {
           permission = await Geolocator.requestPermission().timeout(
             const Duration(seconds: 5),
@@ -123,106 +220,95 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           );
         }
       } catch (e) {
-        logger.e('Error checking permissions: $e');
-        if (mounted) {
-          setState(() {
-            _isLocationReady = true;
-          });
-        }
-        return;
+        logger.e('Error requesting location permission: $e');
+        permission = LocationPermission.denied;
       }
-
-      if (permission == LocationPermission.denied ||
+      
+      if (permission == LocationPermission.denied || 
           permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          setState(() {
-            _isLocationReady = true;
-          });
-        }
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم رفض إذن الموقع.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        setState(() {
+          _isLoading = false;
+          _isLocationReady = false;
+          _userLocation = defaultCenter;
+        });
         return;
       }
-
-      // Get position
+      
+      // Get current position with timeout
+      Position position;
       try {
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+                                accuracy: LocationAccuracy.high,
+                                timeLimit: Duration(seconds: 5)),
+          // desiredAccuracy: LocationAccuracy.high,
+          // timeLimit: const Duration(seconds: 5),
         );
-
-        if (!mounted) return;
-
-        setState(() {
-          _userLocation = LatLng(position.latitude, position.longitude);
-          _isLocationReady = true;
-        });
-
-        // Wait a moment to ensure the map is ready before moving
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        // Check if widget is still mounted and map controller is still valid
-        if (mounted && _userLocation != null) {
-          // Add extra safety check for postFrameCallback
-          bool isMapControllerDisposed = false;
-          try {
-            // Try to access a property of the map controller to see if it's disposed
-            var _ = mapController.camera.zoom;
-          } catch (e) {
-            isMapControllerDisposed = true;
-            logger.e('Map controller is disposed or invalid: $e');
-          }
-
-          if (!isMapControllerDisposed) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              // Double-check mounted status again inside callback
-              if (!mounted) return;
-
-              try {
-                // Check controller state once more
-                try {
-                  var _ = mapController.camera.zoom;
-                } catch (e) {
-                  logger.e('Map controller became invalid: $e');
-                  return;
-                }
-
-                if (mapController.camera.zoom != 0) {
-                  mapController.move(_userLocation!, userLocationZoom);
-                } else {
-                  // If camera not ready, try again after a delay
-                  Future.delayed(const Duration(milliseconds: 500), () {
-                    if (!mounted) return;
-
-                    try {
-                      // Final check before moving
-                      var _ = mapController.camera.zoom;
-                      mapController.move(_userLocation!, userLocationZoom);
-                      setState(() {
-                        _currentZoom = userLocationZoom;
-                      });
-                    } catch (e) {
-                      logger.e('Delayed move failed, controller invalid: $e');
-                    }
-                  });
-                }
-              } catch (e) {
-                logger.e('Error moving map camera: $e');
-              }
-            });
-          }
-        }
       } catch (e) {
-        logger.e('Error getting position: $e');
-        if (mounted) {
-          setState(() {
-            _isLocationReady = true;
-          });
-        }
+        logger.e('Error getting current location: $e');
+        if (!mounted) return;
+        
+        setState(() {
+          _isLoading = false;
+          _isLocationReady = false;
+          _userLocation = defaultCenter;
+        });
+        return;
       }
+      
+      if (!mounted) return;
+      
+      // Update location and heading in state
+      setState(() {
+        _currentPosition = position;
+        _userLocation = LatLng(position.latitude, position.longitude);
+        
+        // Update heading if available and not zero
+        if (position.heading > 0.0) {
+          _currentHeading = position.heading;
+          logger.i('Initial heading: $_currentHeading');
+        }
+        
+        _isLoading = false;
+        _isLocationReady = true;
+      });
+      
+      // Wait for map controller to be ready before moving
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Final mounted check before manipulating map
+      if (!mounted) return;
+      
+      // Use safe post-frame callback to move map
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          if (mounted && _userLocation != null) {
+            mapController.move(_userLocation!, userLocationZoom);
+          }
+        } catch (e) {
+          logger.e('Error moving map camera: $e');
+        }
+      });
     } catch (e) {
       logger.e('General error getting location: $e');
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في الحصول على الموقع: ${e.toString()}'),
+          ),
+        );
         setState(() {
-          _isLocationReady = true;
+          _isLoading = false;
+          _isLocationReady = false;
+          _userLocation = defaultCenter;
         });
       }
     }
@@ -477,30 +563,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
                       // User location marker (if available)
                       if (_userLocation != null)
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              width: _getMarkerSize(_currentZoom) * 1.5, // Slightly larger than location markers
-                              height: _getMarkerSize(_currentZoom) * 1.5,
-                              point: _userLocation!,
-                              child: Container(
-                                // padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.9),
-                                  shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: Colors.white, width: 2),
-                                ),
-                                child: Icon(
-                                  Icons.navigation,
-                                  color: Colors.white,
-                                  size: _getMarkerSize(_currentZoom) * 0.8,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
                       // Location markers
                       MarkerLayer(
                         markers: locations
@@ -564,6 +626,34 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                             );
                           })
                           .toList(),
+                      ),
+
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              width: _getMarkerSize(_currentZoom) * 1.5,
+                              height: _getMarkerSize(_currentZoom) * 1.5,
+                              point: _userLocation!,
+                              child: Transform.rotate(
+                                angle: (_currentHeading * (math.pi / 180)),
+                                child: Container(
+                                // decoration: BoxDecoration(
+                                //   color: Colors.blue.shade700,
+                                //   shape: BoxShape.circle,
+                                //   border: Border.all(
+                                //     color: Colors.white,
+                                //     width: 2,
+                                //   ),
+                                // ),
+                                child: Icon(
+                                  Icons.navigation,
+                                  color: Colors.blue,
+                                  size: _getMarkerSize(_currentZoom) * 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   );
