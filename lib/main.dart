@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:map_explorer/screens/location_details_screen.dart';
@@ -8,7 +9,6 @@ import 'providers/location_data_provider.dart';
 import 'screens/map_screen.dart';
 import 'screens/add_location_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
 import 'logger.dart';
 
@@ -63,7 +63,21 @@ Future<void> initializeApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     // Initialize Firebase
-    await Firebase.initializeApp();
+    // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform,);
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'AIzaSyCX_er4cJw6aYcSiOC8Bfno4G8MaxBYbiE',
+          appId: '1:482997368728:web:a8549d9800bf3725379ded',
+          messagingSenderId: '482997368728',
+          projectId: 'najmshiel-6e18a',
+          authDomain: 'najmshiel-6e18a.firebaseapp.com',
+          storageBucket: 'najmshiel-6e18a.firebasestorage.app',
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
     // Create auth service
     final authService = AuthService();
     // Replace loading app with the real app

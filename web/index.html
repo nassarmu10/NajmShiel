@@ -29,8 +29,32 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>map_explorer</title>
+  <title>نجم سهيل</title>
   <link rel="manifest" href="manifest.json">
+
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-analytics.js";
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+  
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyCX_er4cJw6aYcSiOC8Bfno4G8MaxBYbiE",
+      authDomain: "najmshiel-6e18a.firebaseapp.com",
+      projectId: "najmshiel-6e18a",
+      storageBucket: "najmshiel-6e18a.firebasestorage.app",
+      messagingSenderId: "482997368728",
+      appId: "1:482997368728:web:a8549d9800bf3725379ded",
+      measurementId: "G-5LBTNBKX5P"
+    };
+  
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

@@ -8,6 +8,7 @@ import 'package:map_explorer/logger.dart';
 import 'package:map_explorer/screens/profile_screen.dart';
 import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:map_explorer/widgets/filter_option_widget.dart';
+import 'package:map_explorer/widgets/location_preview_widget.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import 'package:flutter_compass/flutter_compass.dart';
@@ -36,11 +37,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   LatLng? _userLocation;
   String _errorMessage = '';
   double _currentZoom = 8.0;
-  Position? _currentPosition; // Store the full position object, not just LatLng
   double _currentHeading = 0.0; // For storing the compass heading
   StreamSubscription<Position>? _positionStreamSubscription; // For continuous updates
   StreamSubscription<CompassEvent>? _compassSubscription;
-  bool _hasCompass = false;
+  bool _followUserLocation = false;
+  bool _hasCompass = true;
+  Location? _selectedLocation;
 
   @override
   void initState() {
@@ -52,41 +54,48 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         if (mounted) {
           setState(() {
             _currentZoom = event.camera.zoom;
+            
+            // If the move was triggered by the user (not by our code following location),
+            // then disable follow mode
+            if (_followUserLocation && event.source == MapEventSource.mapController) {
+              _followUserLocation = false;
+            }
           });
         }
       }
     });
 
     // Check if compass is available on this device
-  FlutterCompass.events?.first.then((_) {
-    if (mounted) {
+    FlutterCompass.events?.first.then((_) {
+      if (mounted) {
+        setState(() {
+          _hasCompass = true;
+        });
+        _startCompassListener();
+      }
+    }).catchError((error) {
+      logger.e('Error checking compass availability: $error');
       setState(() {
-        _hasCompass = true;
+        _hasCompass = false;
       });
-      _startCompassListener();
-    }
-  }).catchError((error) {
-    logger.e('Error checking compass availability: $error');
-    setState(() {
-      _hasCompass = false;
     });
-  });
 
     // Load data first, then get location
     _initializeDataSafely().then((_) {
-    // Add a delay before getting location to ensure map is ready
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        _getCurrentLocation();
-        // Start position stream for real-time updates
-        _startPositionStream();
-      }
+      // Add a delay before getting location to ensure map is ready
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _getCurrentLocation();
+          // Start position stream for real-time updates
+          _startPositionStream();
+        }
+      });
     });
-  });
   }
 
   @override
   void dispose() {
+    _selectedLocation = null;
     // Cancel the position stream when disposing the screen
     _positionStreamSubscription?.cancel();
     _compassSubscription?.cancel();
@@ -100,7 +109,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final permission = await Permission.locationWhenInUse.request();
     if (permission != PermissionStatus.granted) {
       setState(() {
-        _hasCompass = false;
       });
       logger.e('Location permission denied for compass');
       return;
@@ -111,7 +119,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       if (event.heading != null && mounted) {
         setState(() {
           _currentHeading = event.heading!;
-          logger.i('Compass heading: $_currentHeading');
+          // logger.i('Compass heading: $_currentHeading');
         });
       }
     });
@@ -126,12 +134,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       return; // Can't start stream without permission
     }
 
-    // Define location settings for the stream
+    // Define location settings with more frequent updates
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 5, // Update every 5 meters of movement
-      timeLimit: Duration(seconds: 2), // Limit for individual position requests
+      distanceFilter: 2, // Update every 2 meters of movement (more frequent)
+      timeLimit: Duration(seconds: 2),
     );
+
+    // Cancel any existing subscription first
+    await _positionStreamSubscription?.cancel();
 
     // Start the position stream
     _positionStreamSubscription = Geolocator.getPositionStream(
@@ -139,9 +150,19 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     ).listen((Position position) {
       if (mounted) {
         setState(() {
-          _currentPosition = position;
           _userLocation = LatLng(position.latitude, position.longitude);
+          
+          // Update heading if available
+          if (position.heading != 0) {
+            _currentHeading = position.heading;
+          }
         });
+        
+        // Optionally auto-follow user's location if enabled
+        // You can add a toggle for this feature
+        if (_followUserLocation && mapController != null) {
+          mapController.move(_userLocation!, _currentZoom);
+        }
       }
     }, onError: (error) {
       logger.e('Error in position stream: $error');
@@ -171,6 +192,19 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     logger.i("Getting current location with heading");
 
     try {
+
+      // Check if we already have location - if so, just center on it
+      if (_userLocation != null) {
+        // Center map on user location without reloading
+        mapController.move(_userLocation!, userLocationZoom);
+        
+        // Optionally enable follow mode
+        setState(() {
+          _followUserLocation = true; // Turn on follow mode when user requests location
+        });
+        
+        return;
+      }
       setState(() {
         _isLoading = true; // Use existing _isLoading variable
         _isLocationReady = false;
@@ -268,7 +302,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       
       // Update location and heading in state
       setState(() {
-        _currentPosition = position;
         _userLocation = LatLng(position.latitude, position.longitude);
         
         // Update heading if available and not zero
@@ -296,6 +329,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         } catch (e) {
           logger.e('Error moving map camera: $e');
         }
+      });
+      // After getting location, enable follow mode
+      setState(() {
+        _followUserLocation = true;
       });
     } catch (e) {
       logger.e('General error getting location: $e');
@@ -413,10 +450,17 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              final provider =
-                  Provider.of<LocationDataProvider>(context, listen: false);
-              provider.refreshLocations();
+            onPressed: () async {
+              setState(() {
+                _isLoading = true; // Show loading indicator
+              });
+              
+              final provider = Provider.of<LocationDataProvider>(context, listen: false);
+              await provider.refreshLocations();
+              
+              setState(() {
+                _isLoading = false; // Hide loading indicator
+              });
             },
             tooltip: 'تحديث المواقع',
           ),
@@ -430,13 +474,86 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         backgroundColor: Colors.white,
         foregroundColor: Colors.blue.shade700,
       ),
-      body: _buildMainContent(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, '/add_location');
-        },
-        tooltip: 'إضافة موقع',
-        child: const Icon(Icons.add_location_alt),
+      body: Stack(
+        children: [
+          // Your existing map content
+          _buildMainContent(),
+          
+          // Preview panel at the bottom if a location is selected
+          if (_selectedLocation != null)
+            AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: LocationPreviewWidget(
+                  location: _selectedLocation!,
+                  onTap: () => _showLocationDetails(_selectedLocation!.id),
+                  onClose: () {
+                    setState(() {
+                      _selectedLocation = null;
+                    });
+                  },
+                ),
+              ),
+        ],
+      ),
+
+      // floatingActionButton: Column(
+      //   mainAxisAlignment: MainAxisAlignment.end,
+      //   children: [
+      //     // Follow location toggle
+      //     Padding(
+      //       padding: const EdgeInsets.only(bottom: 16.0),
+      //       child: FloatingActionButton(
+      //         heroTag: 'followBtn',
+      //         onPressed: toggleFollowMode,
+      //         backgroundColor: _followUserLocation ? Colors.blue : Colors.grey,
+      //         mini: true,
+      //         child: Icon(
+      //           _followUserLocation ? Icons.gps_fixed : Icons.gps_not_fixed,
+      //           color: Colors.white,
+      //         ),
+      //       ),
+      //     ),
+
+      //     FloatingActionButton(
+      //       heroTag: 'addBtn',
+      //       onPressed: () {
+      //         Navigator.pushNamed(context, '/add_location');
+      //       },
+      //       tooltip: 'إضافة موقع',
+      //       child: const Icon(Icons.add_location_alt),
+      //     ),
+      //   ],
+      // ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: "location",
+            onPressed: () {
+              _getCurrentLocation();
+              // Hide any selected location when getting current location
+              setState(() {
+                _selectedLocation = null;
+              });
+            },
+            mini: true,
+            child: const Icon(Icons.my_location),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton(
+            heroTag: "add",
+            onPressed: () {
+              Navigator.pushNamed(context, '/add_location');
+            },
+            child: const Icon(Icons.add_location_alt),
+          ),
+          // Add padding at the bottom if a location is selected
+          SizedBox(height: _selectedLocation != null ? 160 : 0),
+        ],
       ),
     );
   }
@@ -529,6 +646,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         enableScrollWheel: true,
                         flags: InteractiveFlag.all,
                       ),
+                      onTap: (tapPosition, point) {
+                        setState(() {
+                          _selectedLocation = null;
+                        });
+                      },
                     ),
                     children: [
                       // TileLayer(
@@ -572,6 +694,18 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                               width: markerSize,
                               height: markerSize,
                               point: location.latLng,
+                              child: GestureDetector(
+                                onTap: () {
+                                  logger.i('Marker tapped: ${location.id}');
+                                  setState(() {
+                                    _selectedLocation = location;
+                                  });
+                                  // Optionally center the map on the selected location
+                                  mapController.move(
+                                    location.latLng, 
+                                    _currentZoom > 12 ? _currentZoom : 12
+                                  );
+                                },
                               child: TweenAnimationBuilder<double>(
                                 tween: Tween<double>(begin: 0.0, end: 1.0),
                                 duration: const Duration(milliseconds: 400),
@@ -588,6 +722,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                           decoration: BoxDecoration(
                                             color: Colors.black.withOpacity(0.2),
                                             shape: BoxShape.circle,
+                                            border: Border.all(
+                                            // Highlight the selected location marker
+                                            color: _selectedLocation?.id == location.id
+                                                ? Colors.white
+                                                : Colors.transparent,
+                                            width: 2,
+                                          ),
                                             boxShadow: [
                                               BoxShadow(
                                                 color: Colors.black.withOpacity(0.2),
@@ -596,6 +737,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                               ),
                                             ],
                                           ),
+                                          child: Icon(
+                                          LocationTypeUtils.getIcon(location.type),
+                                          color: Colors.white,
+                                          size: markerSize * 0.6,
+                                        ),
                                         ),
                                         // Marker background
                                         Container(
@@ -610,7 +756,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                             ),
                                           ),
                                           child: GestureDetector(
-                                            onTap: () => _showLocationDetails(location.id),
+                                            // onTap: () => _showLocationDetails(location.id),
                                             child: Icon(
                                               LocationTypeUtils.getIcon(location.type),
                                               color: Colors.white,
@@ -622,6 +768,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                     ),
                                   );
                                 },
+                              ),
                               ),
                             );
                           })
@@ -741,6 +888,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 
   void _showLocationDetails(String locationId) {
+    // Clear the selection when navigating to details
+    setState(() {
+      _selectedLocation = null;
+    });
+    
     Navigator.pushNamed(
       context,
       '/location_details',
@@ -919,6 +1071,17 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       },
     );
   }
+  
+  void toggleFollowMode() {
+    setState(() {
+    _followUserLocation = !_followUserLocation;
+    
+    // If enabling follow mode, immediately center on user
+    if (_followUserLocation && _userLocation != null) {
+      mapController.move(_userLocation!, _currentZoom);
+    }
+  });
+}
 
   // IconData _getIconForType(LocationType type) {
   //   switch (type) {
