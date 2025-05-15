@@ -676,7 +676,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         urlTemplate: 'https://israelhiking.osm.org.il/English/Tiles/{z}/{x}/{y}.png',
                         // urlTemplate: 'https://israelhiking.osm.org.il/Tiles/{z}/{x}/{y}.png',
                         maxZoom: 20,
-                        userAgentPackageName: 'com.najmshiel.map',
+                        userAgentPackageName: 'il.org.osm.israelhiking',
                         retinaMode: RetinaMode.isHighDensity(context),
                         additionalOptions: const {
                           'attribution': '© Israel Hiking Map contributors',
