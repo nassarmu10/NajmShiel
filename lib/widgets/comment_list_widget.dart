@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:map_explorer/models/comment.dart';
 import 'package:map_explorer/providers/location_data_provider.dart';
 import 'package:map_explorer/widgets/edit_comment.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_linkify/flutter_linkify.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:ui' as ui;
 
 class CommentsList extends StatefulWidget {
   final String locationId;
@@ -167,6 +171,29 @@ class CommentItem extends StatelessWidget {
     );
   }
 
+  // Add these methods to CommentItem class
+  Future<void> _launchUrl(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      // Handle error silently for comments
+    }
+  }
+
+  Future<void> _copyCommentText(BuildContext context, String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('تم نسخ التعليق'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+
 
   // Show edit dialog
   void _showEditDialog(BuildContext context) {
@@ -265,6 +292,17 @@ class CommentItem extends StatelessWidget {
           children: [
             Row(
               children: [
+                // Add copy button for comments
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 16),
+                  onPressed: () => _copyCommentText(context, comment.content),
+                  tooltip: 'نسخ التعليق',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                ),
                 // Add options menu for owner
                 if (isOwner)
                   IconButton(
@@ -284,6 +322,7 @@ class CommentItem extends StatelessWidget {
                           fontSize: 16,
                         ),
                         textAlign: TextAlign.right,
+                        textDirection: ui.TextDirection.rtl,
                       ),
                       Text(
                         formattedDate,
@@ -292,6 +331,7 @@ class CommentItem extends StatelessWidget {
                           fontSize: 12,
                         ),
                         textAlign: TextAlign.right,
+                        textDirection: ui.TextDirection.rtl,
                       ),
                     ],
                   ),
@@ -314,10 +354,28 @@ class CommentItem extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             
-            Text(
-              comment.content,
-              style: const TextStyle(fontSize: 15),
-              textAlign: TextAlign.right,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableLinkify(
+                text: comment.content,
+                style: const TextStyle(fontSize: 15),
+                linkStyle: const TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+                textAlign: TextAlign.right,
+                textDirection: ui.TextDirection.rtl,
+                onOpen: (link) => _launchUrl(link.url),
+                options: const LinkifyOptions(
+                  humanize: false,
+                  looseUrl: true,
+                ),
+              ),
             ),
             
             if (comment.imageUrl != null)

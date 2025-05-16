@@ -198,7 +198,7 @@ class MyApp extends StatelessWidget {
         ),
         // Note: MaterialApp doesn't have a textDirection property
         // Instead we'll use a Directionality widget in specific screens
-        home: Directionality(
+        home: const Directionality(
           textDirection: TextDirection.rtl,
           child: AuthWrapper(),
         ),

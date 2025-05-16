@@ -146,7 +146,7 @@ class _AddCommentWidgetState extends State<AddCommentWidget> {
           _selectedImage!,
           context: context,
           cloudName: 'dchx2vghg',
-          uploadPreset: 'location_comments',
+          uploadPreset: 'location_images',
           folder: 'location_comments',
         );
       }

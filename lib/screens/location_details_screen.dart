@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
+import 'package:map_explorer/logger.dart';
 import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:map_explorer/widgets/comment_list_widget.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../models/location.dart';
 import '../providers/location_data_provider.dart';
 import '../widgets/add_comment_widget.dart';
 import '../widgets/vote_widget.dart';
+import 'package:flutter_linkify/flutter_linkify.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:ui' as ui;
 
 class LocationDetailsScreen extends StatefulWidget {
   final String locationId;
@@ -53,20 +57,219 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
       // This will trigger a rebuild of the CommentsList widget
     });
   }
+
+  // Add this method to LocationDetailsScreenState class
+  Future<void> _launchUrl(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('لا يمكن فتح الرابط: $url')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في فتح الرابط: $e')),
+        );
+      }
+    }
+  }
+
+  // Update the description section in the build method
+  Widget _buildDescriptionSection(Location location) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'الوصف',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            // Copy button
+            IconButton(
+              icon: const Icon(Icons.copy),
+              onPressed: () => _copyToClipboard(location.description),
+              tooltip: 'نسخ الوصف',
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (location.description.isEmpty)
+          Text(
+            'لا يوجد وصف',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.right,
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: SelectableLinkify(
+              text: location.description,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+              ),
+              linkStyle: const TextStyle(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+              textAlign: TextAlign.right,
+              textDirection: ui.TextDirection.rtl,
+              onOpen: (link) => _launchUrl(link.url),
+              options: const LinkifyOptions(
+                humanize: false,
+                looseUrl: true,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // Add copy to clipboard method
+  Future<void> _copyToClipboard(String text) async {
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يوجد نص للنسخ')),
+      );
+      return;
+    }
+
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم نسخ الوصف'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في النسخ: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildTagsSection(Location location) {
+    if (location.tags.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'العلامات',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.right,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: location.tags.map((tag) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: LocationTypeUtils.getColor(tag).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: LocationTypeUtils.getColor(tag),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LocationTypeUtils.getIcon(tag),
+                    size: 14,
+                    color: LocationTypeUtils.getColor(tag),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    LocationTypeUtils.getDisplayName(tag),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: LocationTypeUtils.getColor(tag),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
   
   @override
   Widget build(BuildContext context) {
     return Consumer<LocationDataProvider>(
       builder: (context, locationProvider, child) {
-        // Find the location by ID
-        final location = locationProvider.locations.firstWhere(
-          (loc) => loc.id == widget.locationId,
-          orElse: () => throw Exception('Location not found'),
+        final locations = locationProvider.locations.where(
+        (loc) => loc.id == widget.locationId,
+      );
+      
+      if (locations.isEmpty) {
+        // Location doesn't exist, navigate back
+        return Scaffold(
+          appBar: AppBar(title: const Text('موقع غير موجود')),
+          body: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red),
+                SizedBox(height: 16),
+                Text(
+                  'هذا الموقع غير موجود أو تم حذفه',
+                  style: TextStyle(fontSize: 18),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
         );
+      }
+      
+      final location = locations.first;
         
         return Scaffold(
           appBar: AppBar(
             title: Text(location.name),
+            actions: [
+              _buildOptionsMenu(location, locationProvider),
+            ],
           ),
           body: SingleChildScrollView(
             child: Column(
@@ -84,7 +287,7 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                           itemCount: location.images.length,
                           itemBuilder: (context, index) {
                             return Image.network(
-                              location.images[index],
+                              location!.images[index],
                               fit: BoxFit.cover,
                               loadingBuilder: (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;
@@ -270,7 +473,8 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                           ),
                         ],
                       ),
-                      
+                      //tags section
+                      _buildTagsSection(location),
                       // Description
                       // Check if user is creator of this location
                       if (locationProvider.isLocationCreator(location))
@@ -286,7 +490,7 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                                 } else {
                                   // Enter edit mode
                                   setState(() {
-                                    _descriptionController.text = location.description;
+                                    _descriptionController.text = location!.description;
                                     _isEditingDescription = true;
                                   });
                                 }
@@ -310,61 +514,16 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                                       border: OutlineInputBorder(),
                                       hintText: 'أدخل وصفاً جديداً',
                                     ),
-                                    maxLines: 3,
-                                    // textDirection: TextDirection.RTL,
+                                    maxLines: 5,
+                                    textDirection: ui.TextDirection.rtl,
                                     textAlign: TextAlign.right,
                                   )
-                                : Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      const Text(
-                                        'الوصف',
-                                        style: TextStyle(
-                                          fontSize: 18, 
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        textAlign: TextAlign.right,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        location.description.isEmpty ? 'لا يوجد وصف' : location.description,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: location.description.isEmpty ? Colors.grey : Colors.black87,
-                                          fontStyle: location.description.isEmpty ? FontStyle.italic : FontStyle.normal,
-                                        ),
-                                        textAlign: TextAlign.right,
-                                      ),
-                                    ],
-                                  ),
+                                : _buildDescriptionSection(location),
                             ),
                           ],
                         )
                       else
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const SizedBox(height: 20),
-                            const Text(
-                              'الوصف',
-                              style: TextStyle(
-                                fontSize: 18, 
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.right,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              location.description.isEmpty ? 'لا يوجد وصف' : location.description,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: location.description.isEmpty ? Colors.grey : Colors.black87,
-                                fontStyle: location.description.isEmpty ? FontStyle.italic : FontStyle.normal,
-                              ),
-                              textAlign: TextAlign.right,
-                            ),
-                          ],
-                        ),
+                        _buildDescriptionSection(location),
                       
                       const SizedBox(height: 16),
                       
@@ -539,5 +698,115 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
         );
       }
     }
+  }
+
+  void _showDeleteDialog(Location location, LocationDataProvider provider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الموقع'),
+        content: Text('هل أنت متأكد من أنك تريد حذف موقع "${location.name}"؟\n\nستتم إزالة الموقع وجميع التعليقات والتصويتات المرتبطة به نهائياً.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteLocation(location, provider);
+            },
+            child: const Text('حذف', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteLocation(Location location, LocationDataProvider provider) async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('جاري حذف الموقع...'),
+            ],
+          ),
+        ),
+      );
+
+      // Delete the location
+      await provider.deleteLocation(location.id);
+
+      if (mounted) {
+        // Close loading dialog first
+        Navigator.of(context).pop();
+        // await Future.delayed(const Duration(seconds: 5));
+        
+        // // Simple: just pop back to the first route (MapScreen)
+        // Navigator.of(context).popUntil((route) => route.isFirst);
+        
+        // Show success message
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حذف الموقع بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        });
+
+        // Navigate back to map
+      Navigator.pop(context);
+      }
+
+    } catch (e) {
+      if (mounted) {
+        // Close loading dialog
+        Navigator.pop(context);
+        
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في حذف الموقع: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildOptionsMenu(Location location, LocationDataProvider provider) {
+    if (!provider.isLocationCreator(location)) {
+      return const SizedBox.shrink();
+    }
+
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        if (value == 'delete') {
+          _showDeleteDialog(location, provider);
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete, color: Colors.red),
+              SizedBox(width: 8),
+              Text('حذف الموقع', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

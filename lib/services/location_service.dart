@@ -84,6 +84,7 @@ class FirebaseLocationService {
         'createdBy': userId,
         'creatorName': username,
         'images': location.images,
+        'tags': location.tags.map((tag) => tag.toString()).toList(),
       };
       
       // Add legacy fields for backward compatibility if needed
@@ -323,6 +324,7 @@ class FirebaseLocationService {
         'type': location.type.toString(),
         'location': GeoPoint(location.latitude, location.longitude),
         'images': location.images,
+        'tags': location.tags.map((tag) => tag.toString()).toList(),
         // Don't update createdBy, createdAt, etc.
       };
       
@@ -338,6 +340,77 @@ class FirebaseLocationService {
     } catch (e) {
       logger.e('Error updating location: $e');
       throw e;
+    }
+  }
+
+  Future<void> deleteLocation(String locationId, String userId) async {
+    try {
+      // First verify the user owns this location
+      final locationDoc = await _firestore.collection(locationsCollection).doc(locationId).get();
+      
+      if (!locationDoc.exists) {
+        throw Exception('Location not found');
+      }
+      
+      final locationData = locationDoc.data();
+      if (locationData?['createdBy'] != userId) {
+        throw Exception('Unauthorized: You can only delete locations you created');
+      }
+      
+      // Delete the location document
+      await _firestore.collection(locationsCollection).doc(locationId).delete();
+      
+      // Remove location from user's locations array
+      await _firestore.collection('users').doc(userId).update({
+        'locations': FieldValue.arrayRemove([locationId]),
+        'lastActivity': FieldValue.serverTimestamp(),
+      });
+      
+      // Optional: Delete associated comments and votes
+      // You might want to keep them for data integrity
+      await _deleteLocationComments(locationId);
+      await _deleteLocationVotes(locationId);
+      
+      logger.i('Location $locationId deleted successfully by user $userId');
+    } catch (e) {
+      logger.e('Error deleting location: $e');
+      rethrow;
+    }
+  }
+
+  // Helper method to delete associated comments
+  Future<void> _deleteLocationComments(String locationId) async {
+    try {
+      final commentsSnapshot = await _firestore
+          .collection(commentsCollection)
+          .where('locationId', isEqualTo: locationId)
+          .get();
+      
+      final batch = _firestore.batch();
+      for (var doc in commentsSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (e) {
+      logger.e('Error deleting location comments: $e');
+    }
+  }
+
+  // Helper method to delete associated votes
+  Future<void> _deleteLocationVotes(String locationId) async {
+    try {
+      final votesSnapshot = await _firestore
+          .collection(votesCollection)
+          .where('locationId', isEqualTo: locationId)
+          .get();
+      
+      final batch = _firestore.batch();
+      for (var doc in votesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (e) {
+      logger.e('Error deleting location votes: $e');
     }
   }
 }

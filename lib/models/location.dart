@@ -29,6 +29,7 @@ class Location {
   final List<String> images;
   final String? createdBy;
   final String? creatorName;
+  final List<LocationType> tags;
 
   Location({
     required this.id,
@@ -41,6 +42,7 @@ class Location {
     this.images = const [],
     this.createdBy,
     this.creatorName,
+    this.tags = const [],
   });
 
   // Convenience getter for LatLng
@@ -67,6 +69,20 @@ class Location {
       locationType = LocationType.other;
     }
     
+    // Parse tags from list of strings
+    List<LocationType> tags = [];
+    if (data['tags'] != null && data['tags'] is List) {
+      for (String tagString in List<String>.from(data['tags'])) {
+        try {
+          LocationType tag = LocationType.values.firstWhere(
+            (e) => e.toString() == tagString,
+          );
+          tags.add(tag);
+        } catch (_) {
+          // Skip invalid tags
+        }
+      }
+    }
     // Handle timestamp from Firestore
     DateTime createdAtDate;
     if (data['createdAt'] is Timestamp) {
@@ -107,6 +123,7 @@ class Location {
       images: images,
       createdBy: data['createdBy'],
       creatorName: data['creatorName'],
+      tags: tags,
     );
   }
   
@@ -121,6 +138,7 @@ class Location {
       'images': images,
       'createdBy': createdBy,
       'creatorName': creatorName,
+      'tags': tags.map((tag) => tag.toString()).toList(),
     };
   }
 }

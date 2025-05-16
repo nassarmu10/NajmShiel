@@ -34,6 +34,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
   final List<XFile> _selectedImages = [];
   bool _isUploadingImages = false;
   bool _isMapInitialized = false;
+  Set<LocationType> _selectedTags = {};
   
   @override
   void initState() {
@@ -266,6 +267,80 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
     setState(() {
       _editMapMode = !_editMapMode;
     });
+  }
+
+  // Add this method after the existing methods
+  Widget _buildTagSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'العلامات (يمكن اختيار أكثر من علامة):',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.right,
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: LocationType.values.map((tag) {
+            final isSelected = _selectedTags.contains(tag);
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    _selectedTags.remove(tag);
+                  } else {
+                    _selectedTags.add(tag);
+                  }
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected 
+                    ? LocationTypeUtils.getColor(tag).withOpacity(0.2)
+                    : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected 
+                      ? LocationTypeUtils.getColor(tag)
+                      : Colors.grey[400]!,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LocationTypeUtils.getIcon(tag),
+                      size: 16,
+                      color: isSelected 
+                        ? LocationTypeUtils.getColor(tag)
+                        : Colors.grey[600],
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      LocationTypeUtils.getDisplayName(tag),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected 
+                          ? LocationTypeUtils.getColor(tag)
+                          : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 
   @override
@@ -526,7 +601,9 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
             ),
               
             const SizedBox(height: 16),
-              
+            // tag selection
+            _buildTagSelection(),
+            const SizedBox(height: 16),
             // Location type dropdown
             DropdownButtonFormField<LocationType>(
               value: _selectedType,
@@ -555,9 +632,12 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.description),
                 alignLabelWithHint: true,
+                helperText: 'يمكنك إضافة روابط مثل: https://example.com',
+                helperMaxLines: 2,
               ),
-              maxLines: 3,
+              maxLines: 5,
               textAlign: TextAlign.right,
+              textDirection: TextDirection.rtl,
               // validator: (value) => 
               //   value == null || value.isEmpty ? 'الرجاء إدخال وصف' : null,
               onChanged: (value) => _description = value,
@@ -665,6 +745,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         images: imageUrls, // Cloudinary URLs
         createdBy: locationProvider.currentUserId,
         creatorName: username,
+        tags: _selectedTags.toList(),
       );
       
       // Add to provider

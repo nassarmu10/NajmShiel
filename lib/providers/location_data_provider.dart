@@ -232,6 +232,39 @@ class LocationDataProvider with ChangeNotifier {
     }
   }
 
+  Future<void> deleteLocation(String locationId) async {
+    if (_currentUserId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    try {
+      // Check if user is the creator
+      final location = _locations.firstWhere(
+        (loc) => loc.id == locationId,
+        orElse: () => throw Exception('Location not found'),
+      );
+
+      if (!isLocationCreator(location)) {
+        throw Exception('You can only delete locations you created');
+      }
+
+      // Delete from Firebase
+      await _firebaseService.deleteLocation(locationId, _currentUserId!);
+
+      // Remove from local list
+      _locations.removeWhere((loc) => loc.id == locationId);
+      
+      // Clear any cached data for this location
+      _locationComments.remove(locationId);
+      _locationVotes.remove(locationId);
+      
+      notifyListeners();
+    } catch (e) {
+      logger.e('Error deleting location: $e');
+      rethrow;
+    }
+  }
+
   // Toggle filters
   void toggleHistorical() {
     _showHistorical = !_showHistorical;
