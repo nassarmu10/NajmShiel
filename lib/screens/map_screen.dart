@@ -9,6 +9,7 @@ import 'package:map_explorer/screens/profile_screen.dart';
 import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:map_explorer/widgets/filter_option_widget.dart';
 import 'package:map_explorer/widgets/location_preview_widget.dart';
+import 'package:map_explorer/widgets/location_search_delegate.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import 'package:flutter_compass/flutter_compass.dart';
@@ -43,6 +44,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   bool _followUserLocation = false;
   bool _hasCompass = true;
   Location? _selectedLocation;
+  bool _isSearchVisible = false;
 
   @override
   void initState() {
@@ -134,39 +136,51 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       return; // Can't start stream without permission
     }
 
-    // Define location settings with more frequent updates
+    // Define location settings with more reasonable timeouts
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 2, // Update every 2 meters of movement (more frequent)
-      timeLimit: Duration(seconds: 2),
+      distanceFilter: 5, // Update every 5 meters of movement
+      timeLimit: null, // Remove the time limit
     );
 
     // Cancel any existing subscription first
     await _positionStreamSubscription?.cancel();
 
-    // Start the position stream
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen((Position position) {
-      if (mounted) {
-        setState(() {
-          _userLocation = LatLng(position.latitude, position.longitude);
-          
-          // Update heading if available
-          if (position.heading != 0) {
-            _currentHeading = position.heading;
+    try {
+      // Start the position stream
+      _positionStreamSubscription = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
+      ).listen(
+        (Position position) {
+          if (mounted) {
+            setState(() {
+              _userLocation = LatLng(position.latitude, position.longitude);
+              
+              // Update heading if available
+              if (position.heading != 0) {
+                _currentHeading = position.heading;
+              }
+            });
+            
+            // Optionally auto-follow user's location if enabled
+            if (_followUserLocation && mapController != null) {
+              mapController.move(_userLocation!, _currentZoom);
+            }
           }
-        });
-        
-        // Optionally auto-follow user's location if enabled
-        // You can add a toggle for this feature
-        if (_followUserLocation && mapController != null) {
-          mapController.move(_userLocation!, _currentZoom);
-        }
-      }
-    }, onError: (error) {
-      logger.e('Error in position stream: $error');
-    });
+        },
+        onError: (error) {
+          logger.e('Error in position stream: $error');
+          // Try to restart the stream after a delay if there's an error
+          if (mounted) {
+            Future.delayed(const Duration(seconds: 5), () {
+              _startPositionStream();
+            });
+          }
+        },
+      );
+    } catch (e) {
+      logger.e('Error starting position stream: $e');
+    }
   }
 
 
@@ -397,42 +411,76 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.end, // Align to right for Arabic
-          children: [
-            const Text(
-              'نجم سهيل',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              height: 34,
-              width: 34,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 3,
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/images/applogononame.jpg',
-                  fit: BoxFit.cover,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 3,
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/applogononame.jpg',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Flexible(
+                      child: Text(
+                        'نجم سهيل',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
-          // Note: In RTL layouts, 'actions' appear on the left side
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              final provider = Provider.of<LocationDataProvider>(context, listen: false);
+              showSearch(
+                context: context,
+                delegate: LocationSearchDelegate(
+                  locations: provider.locations,
+                  onLocationSelected: (location) {
+                    mapController.move(location.latLng, userLocationZoom);
+                    setState(() {
+                      _selectedLocation = location;
+                    });
+                  },
+                ),
+              );
+            },
+            tooltip: 'بحث',
+          ),
           IconButton(
             icon: const Icon(Icons.person),
             onPressed: () {
@@ -442,27 +490,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               );
             },
             tooltip: 'الملف الشخصي',
-          ),
-          IconButton(
-            icon: const Icon(Icons.my_location),
-            onPressed: _getCurrentLocation,
-            tooltip: 'موقعي الحالي',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              setState(() {
-                _isLoading = true; // Show loading indicator
-              });
-              
-              final provider = Provider.of<LocationDataProvider>(context, listen: false);
-              await provider.refreshLocations();
-              
-              setState(() {
-                _isLoading = false; // Hide loading indicator
-              });
-            },
-            tooltip: 'تحديث المواقع',
           ),
           IconButton(
             icon: const Icon(Icons.filter_list),
@@ -476,58 +503,26 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       ),
       body: Stack(
         children: [
-          // Your existing map content
           _buildMainContent(),
-          
-          // Preview panel at the bottom if a location is selected
           if (_selectedLocation != null)
             AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: LocationPreviewWidget(
-                  location: _selectedLocation!,
-                  onTap: () => _showLocationDetails(_selectedLocation!.id),
-                  onClose: () {
-                    setState(() {
-                      _selectedLocation = null;
-                    });
-                  },
-                ),
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: LocationPreviewWidget(
+                location: _selectedLocation!,
+                onTap: () => _showLocationDetails(_selectedLocation!.id),
+                onClose: () {
+                  setState(() {
+                    _selectedLocation = null;
+                  });
+                },
               ),
+            ),
         ],
       ),
-
-      // floatingActionButton: Column(
-      //   mainAxisAlignment: MainAxisAlignment.end,
-      //   children: [
-      //     // Follow location toggle
-      //     Padding(
-      //       padding: const EdgeInsets.only(bottom: 16.0),
-      //       child: FloatingActionButton(
-      //         heroTag: 'followBtn',
-      //         onPressed: toggleFollowMode,
-      //         backgroundColor: _followUserLocation ? Colors.blue : Colors.grey,
-      //         mini: true,
-      //         child: Icon(
-      //           _followUserLocation ? Icons.gps_fixed : Icons.gps_not_fixed,
-      //           color: Colors.white,
-      //         ),
-      //       ),
-      //     ),
-
-      //     FloatingActionButton(
-      //       heroTag: 'addBtn',
-      //       onPressed: () {
-      //         Navigator.pushNamed(context, '/add_location');
-      //       },
-      //       tooltip: 'إضافة موقع',
-      //       child: const Icon(Icons.add_location_alt),
-      //     ),
-      //   ],
-      // ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -535,7 +530,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             heroTag: "location",
             onPressed: () {
               _getCurrentLocation();
-              // Hide any selected location when getting current location
               setState(() {
                 _selectedLocation = null;
               });
@@ -545,13 +539,28 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 8),
           FloatingActionButton(
+            heroTag: "refresh",
+            onPressed: () async {
+              setState(() {
+                _isLoading = true;
+              });
+              final provider = Provider.of<LocationDataProvider>(context, listen: false);
+              await provider.refreshLocations();
+              setState(() {
+                _isLoading = false;
+              });
+            },
+            mini: true,
+            child: const Icon(Icons.refresh),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton(
             heroTag: "add",
             onPressed: () {
               Navigator.pushNamed(context, '/add_location');
             },
             child: const Icon(Icons.add_location_alt),
           ),
-          // Add padding at the bottom if a location is selected
           SizedBox(height: _selectedLocation != null ? 160 : 0),
         ],
       ),

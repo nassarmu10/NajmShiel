@@ -122,6 +122,26 @@ class LocationDataProvider with ChangeNotifier {
       }
     }).toList();
   }
+
+  // Search locations by name
+  List<Location> searchLocations(String query) {
+    if (query.isEmpty) {
+      return [];
+    }
+    
+    // Convert query to lowercase for case-insensitive search
+    final lowercaseQuery = query.toLowerCase();
+    
+    // Filter locations based on name match
+    return _locations.where((location) {
+      final lowercaseName = location.name.toLowerCase();
+      final lowercaseDescription = location.description.toLowerCase();
+      
+      return lowercaseName.contains(lowercaseQuery) || 
+             lowercaseDescription.contains(lowercaseQuery);
+    }).toList();
+  }
+
   // Load locations from Firebase
   Future<void> _loadLocations() async {
     _isLoading = true;
