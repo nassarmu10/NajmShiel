@@ -30,5 +30,20 @@
 	<string>NSApplication</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Najm Shiel requires GPS access</string>
+	<key>GIDClientID</key>
+	<string>482997368728-0utpous3nkf8m07aq2jo1dov5uqjj3em.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- TODO Replace this value: -->
+				<!-- Copied from GoogleService-Info.plist key REVERSED_CLIENT_ID -->
+				<string>com.googleusercontent.apps.482997368728-0utpous3nkf8m07aq2jo1dov5uqjj3em</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

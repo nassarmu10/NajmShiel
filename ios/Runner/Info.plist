@@ -54,5 +54,18 @@
     <string>Your location is required</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Your location is required</string>
+	<key>GIDClientID</key>
+	<string>482997368728-0utpous3nkf8m07aq2jo1dov5uqjj3em.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.482997368728-0utpous3nkf8m07aq2jo1dov5uqjj3em</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
