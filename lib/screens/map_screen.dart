@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -47,10 +48,18 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   Location? _selectedLocation;
   bool _isSearchVisible = false;
 
+  String get _mapUrlTemplate {
+    final deviceLanguage = Platform.localeName.split('_')[0];
+    return deviceLanguage == 'he'
+        ? 'https://israelhiking.osm.org.il/Tiles/{z}/{x}/{y}.png'
+        : 'https://israelhiking.osm.org.il/English/Tiles/{z}/{x}/{y}.png';
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
     // Add listener for zoom changes
     mapController.mapEventStream.listen((MapEvent event) {
       if (event is MapEventMoveEnd) {
@@ -745,11 +754,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       //   },
                       // ),
                       TileLayer(
-                        urlTemplate: Localizations.localeOf(context)
-                                    .languageCode ==
-                                'he'
-                            ? 'https://israelhiking.osm.org.il/Tiles/{z}/{x}/{y}.png'
-                            : 'https://israelhiking.osm.org.il/English/Tiles/{z}/{x}/{y}.png',
+                        urlTemplate: _mapUrlTemplate,
                         maxZoom: 20,
                         userAgentPackageName: 'il.org.osm.israelhiking',
                         retinaMode: RetinaMode.isHighDensity(context),
