@@ -60,31 +60,23 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    // Add listener for zoom changes
-    mapController.mapEventStream.listen((MapEvent event) {
-      if (event is MapEventMoveEnd) {
-        if (mounted) {
-          setState(() {
-            _currentZoom = event.camera.zoom;
-          });
-        }
-      }
+    
+    // Initialize data first
+    _initializeDataSafely().then((_) {
+      if (!mounted) return;
+      
+      // Initialize location services in the background
+      _initializeLocationServices();
     });
 
-    // Initialize compass with proper error handling
-    _initializeCompass();
-
-    // Load data first, then get location
-    _initializeDataSafely().then((_) {
-      // Add a delay before getting location to ensure map is ready
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          _getCurrentLocation();
-          // Start position stream for real-time updates
-          _startPositionStream();
-        }
-      });
+    // Listen for map events
+    mapController.mapEventStream.listen((MapEvent event) {
+      if (event is MapEventMoveEnd && mounted) {
+        setState(() {
+          _currentZoom = event.camera.zoom;
+          _hasUserMovedMap = true;
+        });
+      }
     });
   }
 
@@ -450,6 +442,49 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _initializeLocationServices() async {
+    try {
+      // Check location services without showing UI yet
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        logger.i('Location services disabled');
+        return;
+      }
+
+      // Check permission status without requesting
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.whileInUse || 
+          permission == LocationPermission.always) {
+        // Get initial position
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        if (mounted) {
+          setState(() {
+            _userLocation = LatLng(position.latitude, position.longitude);
+            _isLocationReady = true;
+          });
+
+          // Move map to current location
+          mapController.move(_userLocation!, userLocationZoom);
+        }
+
+        // Start continuous updates
+        _startPositionStream();
+      }
+
+      // Initialize compass in background
+      _initializeCompass();
+    } catch (e) {
+      logger.e('Error initializing location services: $e');
+    }
+  }
+
   void _retry() {
     setState(() {
       _isLoading = true;
@@ -703,267 +738,165 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     return Consumer<LocationDataProvider>(
       builder: (context, locationProvider, child) {
         final locations = locationProvider.filteredLocations;
-
-        // For initial center, use user location if available, otherwise use default
         final initialCenter = _userLocation ?? defaultCenter;
-        final initialMapZoom =
-            _userLocation != null ? userLocationZoom : initialZoom;
+        final initialZoomLevel = _userLocation != null ? userLocationZoom : initialZoom;
 
         return Stack(
           children: [
-            Builder(
-              builder: (context) {
-                try {
-                  return FlutterMap(
-                    mapController: mapController,
-                    options: MapOptions(
-                      initialCenter: initialCenter,
-                      initialZoom: initialMapZoom,
-                      interactionOptions: const InteractionOptions(
-                        enableMultiFingerGestureRace: true,
-                        enableScrollWheel: true,
-                        flags: InteractiveFlag.all,
-                      ),
-                      onTap: (tapPosition, point) {
-                        setState(() {
-                          _selectedLocation = null;
-                        });
-                      },
-                      onMapReady: () {
-                        // Start listening to zoom changes
-                        mapController.mapEventStream.listen((event) {
-                          if (event is MapEventMoveEnd) {
-                            setState(() {
-                              _currentZoom = mapController.zoom;
-                              _hasUserMovedMap = true;
-                            });
-                          }
-                        });
-                      },
-                    ),
-                    children: [
-                      // TileLayer(
-                      //   urlTemplate:
-                      //       'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
-                      //   subdomains: const ['a', 'b', 'c'],
-                      //   userAgentPackageName: 'com.najmshiel.map',
-                      //   maxZoom: 18,
-                      //   retinaMode: RetinaMode.isHighDensity(context),
-                      // ),
-                      // TileLayer(
-                      //   urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                      //   subdomains: const ['a', 'b', 'c'],
-                      //   userAgentPackageName: 'com.najmshiel.map',
-                      //   maxZoom: 17,
-                      //   retinaMode: RetinaMode.isHighDensity(context),
-                      //   additionalOptions: const {
-                      //     // 'attribution': '© OpenTopoMap (CC-BY-SA)',
-                      //     "attribution": "Map data: © <a href=\"https://openstreetmap.org/copyright\">OpenStreetMap</a> contributors, SRTM | Map display: © <a href=\"http://opentopomap.org\">OpenTopoMap</a> (<a href=\"https://creativecommons.org/licenses/by-sa/3.0/\">CC-BY-SA</a>)"
-                      //   },
-                      // ),
-                      TileLayer(
-                        urlTemplate: _mapUrlTemplate,
-                        maxZoom: 20,
-                        userAgentPackageName: 'il.org.osm.israelhiking',
-                        retinaMode: RetinaMode.isHighDensity(context),
-                        additionalOptions: const {
-                          'attribution': '© Israel Hiking Map contributors',
-                        },
-                      ),
-
-                      // User location marker (if available)
-                      if (_userLocation != null)
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              width: _getMarkerSize(_currentZoom) * 1.5,
-                              height: _getMarkerSize(_currentZoom) * 1.5,
-                              point: _userLocation!,
-                              child: Transform.rotate(
-                                angle: _hasCompass
-                                    ? (_currentHeading * (math.pi / 180))
-                                    : 0,
-                                child: Container(
-                                  child: Icon(
-                                    Icons.navigation,
-                                    color: Colors.blue,
-                                    size: _getMarkerSize(_currentZoom) * 1.5,
-                                  ),
-                                ),
-                              ),
+            FlutterMap(
+              mapController: mapController,
+              options: MapOptions(
+                initialCenter: initialCenter,
+                initialZoom: initialZoomLevel,
+                maxZoom: 18.0,
+                minZoom: 8.0,
+                onMapReady: () {
+                  if (mounted) {
+                    setState(() {
+                      _isLoading = false;
+                    });
+                  }
+                },
+                onTap: (_, __) {
+                  setState(() {
+                    _selectedLocation = null;
+                  });
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: _mapUrlTemplate,
+                  maxZoom: 18.0,
+                  minZoom: 8.0,
+                  keepBuffer: 2,
+                  backgroundColor: Colors.white,
+                  userAgentPackageName: 'il.org.osm.israelhiking',
+                  tileProvider: NetworkTileProvider(),
+                  additionalOptions: const {
+                    'attribution': '© Israel Hiking Map contributors',
+                  },
+                ),
+                // User location marker (if available)
+                if (_userLocation != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        width: _getMarkerSize(_currentZoom) * 1.5,
+                        height: _getMarkerSize(_currentZoom) * 1.5,
+                        point: _userLocation!,
+                        child: Transform.rotate(
+                          angle: _hasCompass
+                              ? (_currentHeading * (math.pi / 180))
+                              : 0,
+                          child: Container(
+                            child: Icon(
+                              Icons.navigation,
+                              color: Colors.blue,
+                              size: _getMarkerSize(_currentZoom) * 1.5,
                             ),
-                          ],
+                          ),
                         ),
+                      ),
+                    ],
+                  ),
 
-                      // Location markers
-                      MarkerLayer(
-                        markers: locations.map((location) {
-                          final markerSize = _getMarkerSize(_currentZoom);
-                          return Marker(
-                            width: markerSize,
-                            height: markerSize,
-                            point: location.latLng,
-                            child: GestureDetector(
-                              onTap: () {
-                                logger.i('Marker tapped: ${location.id}');
-                                setState(() {
-                                  _selectedLocation = location;
-                                });
-                                // Optionally center the map on the selected location
-                                mapController.move(location.latLng,
-                                    _currentZoom > 12 ? _currentZoom : 12);
-                              },
-                              child: TweenAnimationBuilder<double>(
-                                tween: Tween<double>(begin: 0.0, end: 1.0),
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.elasticOut,
-                                builder: (context, value, child) {
-                                  return Transform.scale(
-                                    scale: value,
-                                    child: Stack(
-                                      children: [
-                                        // Shadow effect
-                                        Container(
-                                          height: markerSize,
-                                          width: markerSize,
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.black.withOpacity(0.2),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              // Highlight the selected location marker
-                                              color: _selectedLocation?.id ==
-                                                      location.id
-                                                  ? Colors.white
-                                                  : Colors.transparent,
-                                              width: 2,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black
-                                                    .withOpacity(0.2),
-                                                blurRadius: 6,
-                                                spreadRadius: 1,
-                                              ),
-                                            ],
-                                          ),
-                                          child: Icon(
-                                            LocationTypeUtils.getIcon(
-                                                location.type),
-                                            color: Colors.white,
-                                            size: markerSize * 0.6,
-                                          ),
-                                        ),
-                                        // Marker background
-                                        Container(
-                                          height: markerSize - 2,
-                                          width: markerSize - 2,
-                                          decoration: BoxDecoration(
-                                            color: LocationTypeUtils.getColor(
-                                                location.type),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: GestureDetector(
-                                            // onTap: () => _showLocationDetails(location.id),
-                                            child: Icon(
-                                              LocationTypeUtils.getIcon(
-                                                  location.type),
-                                              color: Colors.white,
-                                              size: markerSize * 0.6,
-                                            ),
-                                          ),
+                // Location markers
+                MarkerLayer(
+                  markers: locations.map((location) {
+                    final markerSize = _getMarkerSize(_currentZoom);
+                    return Marker(
+                      width: markerSize,
+                      height: markerSize,
+                      point: location.latLng,
+                      child: GestureDetector(
+                        onTap: () {
+                          logger.i('Marker tapped: ${location.id}');
+                          setState(() {
+                            _selectedLocation = location;
+                          });
+                          // Optionally center the map on the selected location
+                          mapController.move(location.latLng,
+                              _currentZoom > 12 ? _currentZoom : 12);
+                        },
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.elasticOut,
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              child: Stack(
+                                children: [
+                                  // Shadow effect
+                                  Container(
+                                    height: markerSize,
+                                    width: markerSize,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.black.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        // Highlight the selected location marker
+                                        color: _selectedLocation?.id ==
+                                                location.id
+                                            ? Colors.white
+                                            : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black
+                                              .withOpacity(0.2),
+                                          blurRadius: 6,
+                                          spreadRadius: 1,
                                         ),
                                       ],
                                     ),
-                                  );
-                                },
+                                    child: Icon(
+                                      LocationTypeUtils.getIcon(
+                                          location.type),
+                                      color: Colors.white,
+                                      size: markerSize * 0.6,
+                                    ),
+                                  ),
+                                  // Marker background
+                                  Container(
+                                    height: markerSize - 2,
+                                    width: markerSize - 2,
+                                    decoration: BoxDecoration(
+                                      color: LocationTypeUtils.getColor(
+                                          location.type),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: GestureDetector(
+                                      // onTap: () => _showLocationDetails(location.id),
+                                      child: Icon(
+                                        LocationTypeUtils.getIcon(
+                                            location.type),
+                                        color: Colors.white,
+                                        size: markerSize * 0.6,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  );
-                } catch (e) {
-                  logger.e('Error building map: $e');
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.map_outlined,
-                            size: 48, color: Colors.grey),
-                        const SizedBox(height: 16),
-                        Text('خطأ في تحميل الخريطة: $e'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _retry,
-                          child: const Text('إعادة المحاولة'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              },
-            ),
-
-            // Current zoom indicator (can be removed in production)
-            Positioned(
-              top: 16,
-              left: 16,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.8),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Zoom: ${_currentZoom.toStringAsFixed(1)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-
-            // Loading indicator while waiting for location
-            if (!_isLocationReady)
-              Positioned(
-                bottom: 16,
-                right: 16,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.blue),
+                            );
+                          },
                         ),
                       ),
-                      SizedBox(width: 8),
-                      Text('جاري تحديد الموقع...'),
-                    ],
-                  ),
+                    );
+                  }).toList(),
                 ),
+              ],
+            ),
+            // Show loading indicator while map is initializing
+            if (_isLoading)
+              const Center(
+                child: CircularProgressIndicator(),
               ),
           ],
         );
