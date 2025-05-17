@@ -745,9 +745,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       //   },
                       // ),
                       TileLayer(
-                        urlTemplate:
-                            'https://israelhiking.osm.org.il/English/Tiles/{z}/{x}/{y}.png',
-                        // urlTemplate: 'https://israelhiking.osm.org.il/Tiles/{z}/{x}/{y}.png',
+                        urlTemplate: Localizations.localeOf(context)
+                                    .languageCode ==
+                                'he'
+                            ? 'https://israelhiking.osm.org.il/Tiles/{z}/{x}/{y}.png'
+                            : 'https://israelhiking.osm.org.il/English/Tiles/{z}/{x}/{y}.png',
                         maxZoom: 20,
                         userAgentPackageName: 'il.org.osm.israelhiking',
                         retinaMode: RetinaMode.isHighDensity(context),
