@@ -43,8 +43,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   StreamSubscription<Position>?
       _positionStreamSubscription; // For continuous updates
   StreamSubscription<CompassEvent>? _compassSubscription;
-  bool _followUserLocation = false;
-  bool _hasCompass = true;
+  bool _hasCompass = false; // Start as false until we confirm availability
   Location? _selectedLocation;
   bool _isSearchVisible = false;
 
@@ -58,32 +57,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         if (mounted) {
           setState(() {
             _currentZoom = event.camera.zoom;
-
-            // If the move was triggered by the user (not by our code following location),
-            // then disable follow mode
-            if (_followUserLocation &&
-                event.source == MapEventSource.mapController) {
-              _followUserLocation = false;
-            }
           });
         }
       }
     });
 
-    // Check if compass is available on this device
-    FlutterCompass.events?.first.then((_) {
-      if (mounted) {
-        setState(() {
-          _hasCompass = true;
-        });
-        _startCompassListener();
-      }
-    }).catchError((error) {
-      logger.e('Error checking compass availability: $error');
-      setState(() {
-        _hasCompass = false;
-      });
-    });
+    // Initialize compass with proper error handling
+    _initializeCompass();
 
     // Load data first, then get location
     _initializeDataSafely().then((_) {
@@ -108,25 +88,86 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // Start compass listener to get heading updates
-  void _startCompassListener() async {
-    // Request location permission for compass to work properly
-    final permission = await Permission.locationWhenInUse.request();
-    if (permission != PermissionStatus.granted) {
-      setState(() {});
-      logger.e('Location permission denied for compass');
-      return;
-    }
+  // Initialize compass with proper error handling
+  Future<void> _initializeCompass() async {
+    try {
+      // First check if the device has a compass
+      final hasCompass = await FlutterCompass.events?.first
+              .then((_) => true)
+              .catchError((_) => false) ??
+          false;
 
-    // Subscribe to compass events
-    _compassSubscription = FlutterCompass.events?.listen((CompassEvent event) {
-      if (event.heading != null && mounted) {
+      if (!hasCompass) {
+        logger.i('Device does not have a compass');
+        if (mounted) {
+          setState(() {
+            _hasCompass = false;
+          });
+        }
+        return;
+      }
+
+      // Request motion permission on iOS
+      if (Theme.of(context).platform == TargetPlatform.iOS) {
+        final status = await Permission.sensors.request();
+        if (status != PermissionStatus.granted) {
+          logger.i('Motion permission denied on iOS');
+          if (mounted) {
+            setState(() {
+              _hasCompass = false;
+            });
+          }
+          return;
+        }
+      }
+
+      // Start compass listener
+      _startCompassListener();
+
+      if (mounted) {
         setState(() {
-          _currentHeading = event.heading!;
-          // logger.i('Compass heading: $_currentHeading');
+          _hasCompass = true;
         });
       }
-    });
+    } catch (e) {
+      logger.e('Error initializing compass: $e');
+      if (mounted) {
+        setState(() {
+          _hasCompass = false;
+        });
+      }
+    }
+  }
+
+  // Start compass listener to get heading updates
+  void _startCompassListener() async {
+    try {
+      // Subscribe to compass events
+      _compassSubscription = FlutterCompass.events?.listen(
+        (CompassEvent event) {
+          if (event.heading != null && mounted) {
+            setState(() {
+              _currentHeading = event.heading!;
+            });
+          }
+        },
+        onError: (error) {
+          logger.e('Error in compass stream: $error');
+          if (mounted) {
+            setState(() {
+              _hasCompass = false;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      logger.e('Error starting compass listener: $e');
+      if (mounted) {
+        setState(() {
+          _hasCompass = false;
+        });
+      }
+    }
   }
 
   // Method to start real-time location updates
@@ -163,11 +204,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 _currentHeading = position.heading;
               }
             });
-
-            // Optionally auto-follow user's location if enabled
-            if (_followUserLocation && mapController != null) {
-              mapController.move(_userLocation!, _currentZoom);
-            }
           }
         },
         onError: (error) {
@@ -211,13 +247,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       if (_userLocation != null) {
         // Center map on user location without reloading
         mapController.move(_userLocation!, userLocationZoom);
-
-        // Optionally enable follow mode
-        setState(() {
-          _followUserLocation =
-              true; // Turn on follow mode when user requests location
-        });
-
         return;
       }
       setState(() {
@@ -343,10 +372,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         } catch (e) {
           logger.e('Error moving map camera: $e');
         }
-      });
-      // After getting location, enable follow mode
-      setState(() {
-        _followUserLocation = true;
       });
     } catch (e) {
       logger.e('General error getting location: $e');
@@ -817,7 +842,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                             height: _getMarkerSize(_currentZoom) * 1.5,
                             point: _userLocation!,
                             child: Transform.rotate(
-                              angle: (_currentHeading * (math.pi / 180)),
+                              angle: _hasCompass
+                                  ? (_currentHeading * (math.pi / 180))
+                                  : 0,
                               child: Container(
                                 // decoration: BoxDecoration(
                                 //   color: Colors.blue.shade700,
@@ -1097,66 +1124,4 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       },
     );
   }
-
-  void toggleFollowMode() {
-    setState(() {
-      _followUserLocation = !_followUserLocation;
-
-      // If enabling follow mode, immediately center on user
-      if (_followUserLocation && _userLocation != null) {
-        mapController.move(_userLocation!, _currentZoom);
-      }
-    });
-  }
-
-  // IconData _getIconForType(LocationType type) {
-  //   switch (type) {
-  //     case LocationType.historical:
-  //       return Icons.history;
-  //     case LocationType.forest:
-  //       return Icons.forest;
-  //     case LocationType.city:
-  //       return Icons.location_city;
-  //     case LocationType.barbecue:
-  //       return Icons.outdoor_grill;
-  //     case LocationType.family:
-  //       return Icons.family_restroom;
-  //     case LocationType.viewpoint:
-  //       return Icons.landscape;
-  //     case LocationType.beach:
-  //       return Icons.beach_access;
-  //     case LocationType.hiking:
-  //       return Icons.hiking;
-  //     case LocationType.camping:
-  //       return Icons.fireplace;
-  //     case LocationType.other:
-  //       return Icons.place;
-  //   }
-  // }
-
-  // // Update the _getColorForType method
-  // Color _getColorForType(LocationType type) {
-  //   switch (type) {
-  //     case LocationType.historical:
-  //       return Colors.brown;
-  //     case LocationType.forest:
-  //       return Colors.green;
-  //     case LocationType.city:
-  //       return Colors.blue;
-  //     case LocationType.barbecue:
-  //       return Colors.deepOrange;
-  //     case LocationType.family:
-  //       return Colors.pink;
-  //     case LocationType.viewpoint:
-  //       return Colors.indigo;
-  //     case LocationType.beach:
-  //       return Colors.amber;
-  //     case LocationType.hiking:
-  //       return Colors.teal;
-  //     case LocationType.camping:
-  //       return Colors.lightGreen;
-  //     case LocationType.other:
-  //       return Colors.purple;
-  //   }
-  // }
 }

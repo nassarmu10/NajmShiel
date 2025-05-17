@@ -56,6 +56,8 @@
     <string>Your location is required</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>Najm Shiel needs access to your location to provide location-based services and features.</string>
+	<key>NSMotionUsageDescription</key>
+    <string>Najm Shiel needs access to motion and compass data to show your orientation on the map.</string>
 	<key>GIDClientID</key>
 	<string>482997368728-0utpous3nkf8m07aq2jo1dov5uqjj3em.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
