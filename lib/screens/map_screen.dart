@@ -109,9 +109,24 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
       // Request motion permission on iOS
       if (Theme.of(context).platform == TargetPlatform.iOS) {
-        final status = await Permission.sensors.request();
-        if (status != PermissionStatus.granted) {
-          logger.i('Motion permission denied on iOS');
+        try {
+          // First check if we already have permission
+          final status = await Permission.sensors.status;
+          if (status.isDenied) {
+            // Request permission only if not already granted
+            final result = await Permission.sensors.request();
+            if (result.isDenied) {
+              logger.i('Motion permission denied on iOS');
+              if (mounted) {
+                setState(() {
+                  _hasCompass = false;
+                });
+              }
+              return;
+            }
+          }
+        } catch (e) {
+          logger.e('Error requesting motion permission: $e');
           if (mounted) {
             setState(() {
               _hasCompass = false;
@@ -743,58 +758,102 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
                       // User location marker (if available)
                       if (_userLocation != null)
-                        // Location markers
                         MarkerLayer(
-                          markers: locations.map((location) {
-                            final markerSize = _getMarkerSize(_currentZoom);
-                            return Marker(
-                              width: markerSize,
-                              height: markerSize,
-                              point: location.latLng,
-                              child: GestureDetector(
-                                onTap: () {
-                                  logger.i('Marker tapped: ${location.id}');
-                                  setState(() {
-                                    _selectedLocation = location;
-                                  });
-                                  // Optionally center the map on the selected location
-                                  mapController.move(location.latLng,
-                                      _currentZoom > 12 ? _currentZoom : 12);
-                                },
-                                child: TweenAnimationBuilder<double>(
-                                  tween: Tween<double>(begin: 0.0, end: 1.0),
-                                  duration: const Duration(milliseconds: 400),
-                                  curve: Curves.elasticOut,
-                                  builder: (context, value, child) {
-                                    return Transform.scale(
-                                      scale: value,
-                                      child: Stack(
-                                        children: [
-                                          // Shadow effect
-                                          Container(
-                                            height: markerSize,
-                                            width: markerSize,
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  Colors.black.withOpacity(0.2),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                // Highlight the selected location marker
-                                                color: _selectedLocation?.id ==
-                                                        location.id
-                                                    ? Colors.white
-                                                    : Colors.transparent,
-                                                width: 2,
-                                              ),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black
-                                                      .withOpacity(0.2),
-                                                  blurRadius: 6,
-                                                  spreadRadius: 1,
-                                                ),
-                                              ],
+                          markers: [
+                            Marker(
+                              width: _getMarkerSize(_currentZoom) * 1.5,
+                              height: _getMarkerSize(_currentZoom) * 1.5,
+                              point: _userLocation!,
+                              child: Transform.rotate(
+                                angle: _hasCompass
+                                    ? (_currentHeading * (math.pi / 180))
+                                    : 0,
+                                child: Container(
+                                  child: Icon(
+                                    Icons.navigation,
+                                    color: Colors.blue,
+                                    size: _getMarkerSize(_currentZoom) * 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                      // Location markers
+                      MarkerLayer(
+                        markers: locations.map((location) {
+                          final markerSize = _getMarkerSize(_currentZoom);
+                          return Marker(
+                            width: markerSize,
+                            height: markerSize,
+                            point: location.latLng,
+                            child: GestureDetector(
+                              onTap: () {
+                                logger.i('Marker tapped: ${location.id}');
+                                setState(() {
+                                  _selectedLocation = location;
+                                });
+                                // Optionally center the map on the selected location
+                                mapController.move(location.latLng,
+                                    _currentZoom > 12 ? _currentZoom : 12);
+                              },
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween<double>(begin: 0.0, end: 1.0),
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.elasticOut,
+                                builder: (context, value, child) {
+                                  return Transform.scale(
+                                    scale: value,
+                                    child: Stack(
+                                      children: [
+                                        // Shadow effect
+                                        Container(
+                                          height: markerSize,
+                                          width: markerSize,
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.black.withOpacity(0.2),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              // Highlight the selected location marker
+                                              color: _selectedLocation?.id ==
+                                                      location.id
+                                                  ? Colors.white
+                                                  : Colors.transparent,
+                                              width: 2,
                                             ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withOpacity(0.2),
+                                                blurRadius: 6,
+                                                spreadRadius: 1,
+                                              ),
+                                            ],
+                                          ),
+                                          child: Icon(
+                                            LocationTypeUtils.getIcon(
+                                                location.type),
+                                            color: Colors.white,
+                                            size: markerSize * 0.6,
+                                          ),
+                                        ),
+                                        // Marker background
+                                        Container(
+                                          height: markerSize - 2,
+                                          width: markerSize - 2,
+                                          decoration: BoxDecoration(
+                                            color: LocationTypeUtils.getColor(
+                                                location.type),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: GestureDetector(
+                                            // onTap: () => _showLocationDetails(location.id),
                                             child: Icon(
                                               LocationTypeUtils.getIcon(
                                                   location.type),
@@ -802,67 +861,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                               size: markerSize * 0.6,
                                             ),
                                           ),
-                                          // Marker background
-                                          Container(
-                                            height: markerSize - 2,
-                                            width: markerSize - 2,
-                                            decoration: BoxDecoration(
-                                              color: LocationTypeUtils.getColor(
-                                                  location.type),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.white,
-                                                width: 2,
-                                              ),
-                                            ),
-                                            child: GestureDetector(
-                                              // onTap: () => _showLocationDetails(location.id),
-                                              child: Icon(
-                                                LocationTypeUtils.getIcon(
-                                                    location.type),
-                                                color: Colors.white,
-                                                size: markerSize * 0.6,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            width: _getMarkerSize(_currentZoom) * 1.5,
-                            height: _getMarkerSize(_currentZoom) * 1.5,
-                            point: _userLocation!,
-                            child: Transform.rotate(
-                              angle: _hasCompass
-                                  ? (_currentHeading * (math.pi / 180))
-                                  : 0,
-                              child: Container(
-                                // decoration: BoxDecoration(
-                                //   color: Colors.blue.shade700,
-                                //   shape: BoxShape.circle,
-                                //   border: Border.all(
-                                //     color: Colors.white,
-                                //     width: 2,
-                                //   ),
-                                // ),
-                                child: Icon(
-                                  Icons.navigation,
-                                  color: Colors.blue,
-                                  size: _getMarkerSize(_currentZoom) * 1.5,
-                                ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                          ),
-                        ],
+                          );
+                        }).toList(),
                       ),
                     ],
                   );
