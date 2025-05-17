@@ -47,6 +47,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   bool _hasCompass = false; // Start as false until we confirm availability
   Location? _selectedLocation;
   bool _isSearchVisible = false;
+  bool _hasUserMovedMap = false;
 
   String get _mapUrlTemplate {
     final deviceLanguage = Platform.localeName.split('_')[0];
@@ -203,11 +204,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       return; // Can't start stream without permission
     }
 
-    // Define location settings with more reasonable timeouts
+    // Define location settings with more frequent updates
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 5, // Update every 5 meters of movement
-      timeLimit: null, // Remove the time limit
+      distanceFilter: 2, // Update every 2 meters of movement
+      timeLimit: null, // No time limit
     );
 
     // Cancel any existing subscription first
@@ -220,14 +221,19 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       ).listen(
         (Position position) {
           if (mounted) {
+            final newLocation = LatLng(position.latitude, position.longitude);
             setState(() {
-              _userLocation = LatLng(position.latitude, position.longitude);
-
+              _userLocation = newLocation;
               // Update heading if available
               if (position.heading != 0) {
                 _currentHeading = position.heading;
               }
             });
+
+            // If this is the first location update or user hasn't manually moved the map
+            if (!_hasUserMovedMap) {
+              mapController.move(newLocation, _currentZoom);
+            }
           }
         },
         onError: (error) {
@@ -582,6 +588,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               _getCurrentLocation();
               setState(() {
                 _selectedLocation = null;
+                _hasUserMovedMap = false;
               });
             },
             mini: true,
@@ -728,6 +735,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           if (event is MapEventMoveEnd) {
                             setState(() {
                               _currentZoom = mapController.zoom;
+                              _hasUserMovedMap = true;
                             });
                           }
                         });
