@@ -30,7 +30,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   final LatLng defaultCenter = const LatLng(31.5, 35.0);
   final double initialZoom = 8.0;
-  final double userLocationZoom = 14.0; // Closer zoom when user location is available
+  final double userLocationZoom =
+      14.0; // Closer zoom when user location is available
 
   bool _isLoading = true;
   bool _hasError = false;
@@ -39,7 +40,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   String _errorMessage = '';
   double _currentZoom = 8.0;
   double _currentHeading = 0.0; // For storing the compass heading
-  StreamSubscription<Position>? _positionStreamSubscription; // For continuous updates
+  StreamSubscription<Position>?
+      _positionStreamSubscription; // For continuous updates
   StreamSubscription<CompassEvent>? _compassSubscription;
   bool _followUserLocation = false;
   bool _hasCompass = true;
@@ -56,10 +58,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         if (mounted) {
           setState(() {
             _currentZoom = event.camera.zoom;
-            
+
             // If the move was triggered by the user (not by our code following location),
             // then disable follow mode
-            if (_followUserLocation && event.source == MapEventSource.mapController) {
+            if (_followUserLocation &&
+                event.source == MapEventSource.mapController) {
               _followUserLocation = false;
             }
           });
@@ -110,8 +113,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     // Request location permission for compass to work properly
     final permission = await Permission.locationWhenInUse.request();
     if (permission != PermissionStatus.granted) {
-      setState(() {
-      });
+      setState(() {});
       logger.e('Location permission denied for compass');
       return;
     }
@@ -131,7 +133,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   Future<void> _startPositionStream() async {
     // Check permission first
     LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied || 
+    if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
       return; // Can't start stream without permission
     }
@@ -155,13 +157,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           if (mounted) {
             setState(() {
               _userLocation = LatLng(position.latitude, position.longitude);
-              
+
               // Update heading if available
               if (position.heading != 0) {
                 _currentHeading = position.heading;
               }
             });
-            
+
             // Optionally auto-follow user's location if enabled
             if (_followUserLocation && mapController != null) {
               mapController.move(_userLocation!, _currentZoom);
@@ -182,7 +184,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       logger.e('Error starting position stream: $e');
     }
   }
-
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -206,17 +207,17 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     logger.i("Getting current location with heading");
 
     try {
-
       // Check if we already have location - if so, just center on it
       if (_userLocation != null) {
         // Center map on user location without reloading
         mapController.move(_userLocation!, userLocationZoom);
-        
+
         // Optionally enable follow mode
         setState(() {
-          _followUserLocation = true; // Turn on follow mode when user requests location
+          _followUserLocation =
+              true; // Turn on follow mode when user requests location
         });
-        
+
         return;
       }
       setState(() {
@@ -235,10 +236,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         logger.e('Error checking location services: $e');
         serviceEnabled = false;
       }
-      
+
       if (!serviceEnabled) {
         if (!mounted) return;
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('خدمات الموقع معطلة. يرجى تمكينها في الإعدادات.'),
@@ -252,7 +253,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         });
         return;
       }
-      
+
       // Request permission
       LocationPermission permission;
       try {
@@ -260,7 +261,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           const Duration(seconds: 3),
           onTimeout: () => LocationPermission.denied,
         );
-        
+
         if (permission == LocationPermission.denied) {
           permission = await Geolocator.requestPermission().timeout(
             const Duration(seconds: 5),
@@ -271,11 +272,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         logger.e('Error requesting location permission: $e');
         permission = LocationPermission.denied;
       }
-      
-      if (permission == LocationPermission.denied || 
+
+      if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (!mounted) return;
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('تم رفض إذن الموقع.'),
@@ -289,21 +290,20 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         });
         return;
       }
-      
+
       // Get current position with timeout
       Position position;
       try {
         position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
-                                accuracy: LocationAccuracy.high,
-                                timeLimit: Duration(seconds: 5)),
+              accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 5)),
           // desiredAccuracy: LocationAccuracy.high,
           // timeLimit: const Duration(seconds: 5),
         );
       } catch (e) {
         logger.e('Error getting current location: $e');
         if (!mounted) return;
-        
+
         setState(() {
           _isLoading = false;
           _isLocationReady = false;
@@ -311,29 +311,29 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         });
         return;
       }
-      
+
       if (!mounted) return;
-      
+
       // Update location and heading in state
       setState(() {
         _userLocation = LatLng(position.latitude, position.longitude);
-        
+
         // Update heading if available and not zero
         if (position.heading > 0.0) {
           _currentHeading = position.heading;
           logger.i('Initial heading: $_currentHeading');
         }
-        
+
         _isLoading = false;
         _isLocationReady = true;
       });
-      
+
       // Wait for map controller to be ready before moving
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // Final mounted check before manipulating map
       if (!mounted) return;
-      
+
       // Use safe post-frame callback to move map
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
@@ -465,7 +465,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              final provider = Provider.of<LocationDataProvider>(context, listen: false);
+              final provider =
+                  Provider.of<LocationDataProvider>(context, listen: false);
               showSearch(
                 context: context,
                 delegate: LocationSearchDelegate(
@@ -544,7 +545,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               setState(() {
                 _isLoading = true;
               });
-              final provider = Provider.of<LocationDataProvider>(context, listen: false);
+              final provider =
+                  Provider.of<LocationDataProvider>(context, listen: false);
               await provider.refreshLocations();
               setState(() {
                 _isLoading = false;
@@ -610,14 +612,25 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     return _buildMap();
   }
 
-  //  Calculate marker size based on zoom level
+  // Calculate marker size based on zoom level
   double _getMarkerSize(double zoom) {
-    // At zoom <= 8, use small markers
-    if (zoom <= 8) return 10;
-    // At zoom >= 14, use larger markers
-    if (zoom >= 14) return 24;
-    // In between, linearly interpolate sizes
-    return 10 + ((zoom - 8) / 6) * 14; // Linear interpolation between 10 and 24
+    // Base size at minimum zoom
+    const double minSize = 12.0;
+    // Maximum size at maximum zoom
+    const double maxSize = 32.0;
+    // Minimum zoom level for size calculation
+    const double minZoom = 5.0;
+    // Maximum zoom level for size calculation
+    const double maxZoom = 18.0;
+
+    // Clamp zoom level between min and max
+    zoom = zoom.clamp(minZoom, maxZoom);
+
+    // Calculate size using exponential scaling for more natural growth
+    double scale = (zoom - minZoom) / (maxZoom - minZoom);
+    double size = minSize + (maxSize - minSize) * math.pow(scale, 0.7);
+
+    return size;
   }
 
   // Get icon size based on current zoom
@@ -660,6 +673,16 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           _selectedLocation = null;
                         });
                       },
+                      onMapReady: () {
+                        // Start listening to zoom changes
+                        mapController.mapEventStream.listen((event) {
+                          if (event is MapEventMoveEnd) {
+                            setState(() {
+                              _currentZoom = mapController.zoom;
+                            });
+                          }
+                        });
+                      },
                     ),
                     children: [
                       // TileLayer(
@@ -682,7 +705,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       //   },
                       // ),
                       TileLayer(
-                        urlTemplate: 'https://israelhiking.osm.org.il/English/Tiles/{z}/{x}/{y}.png',
+                        urlTemplate:
+                            'https://israelhiking.osm.org.il/English/Tiles/{z}/{x}/{y}.png',
                         // urlTemplate: 'https://israelhiking.osm.org.il/Tiles/{z}/{x}/{y}.png',
                         maxZoom: 20,
                         userAgentPackageName: 'il.org.osm.israelhiking',
@@ -694,10 +718,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
                       // User location marker (if available)
                       if (_userLocation != null)
-                      // Location markers
-                      MarkerLayer(
-                        markers: locations
-                          .map((location) {
+                        // Location markers
+                        MarkerLayer(
+                          markers: locations.map((location) {
                             final markerSize = _getMarkerSize(_currentZoom);
                             return Marker(
                               width: markerSize,
@@ -710,89 +733,92 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                     _selectedLocation = location;
                                   });
                                   // Optionally center the map on the selected location
-                                  mapController.move(
-                                    location.latLng, 
-                                    _currentZoom > 12 ? _currentZoom : 12
-                                  );
+                                  mapController.move(location.latLng,
+                                      _currentZoom > 12 ? _currentZoom : 12);
                                 },
-                              child: TweenAnimationBuilder<double>(
-                                tween: Tween<double>(begin: 0.0, end: 1.0),
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.elasticOut,
-                                builder: (context, value, child) {
-                                  return Transform.scale(
-                                    scale: value,
-                                    child: Stack(
-                                      children: [
-                                        // Shadow effect
-                                        Container(
-                                          height: markerSize,
-                                          width: markerSize,
-                                          decoration: BoxDecoration(
-                                            color: Colors.black.withOpacity(0.2),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                            // Highlight the selected location marker
-                                            color: _selectedLocation?.id == location.id
-                                                ? Colors.white
-                                                : Colors.transparent,
-                                            width: 2,
-                                          ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.2),
-                                                blurRadius: 6,
-                                                spreadRadius: 1,
+                                child: TweenAnimationBuilder<double>(
+                                  tween: Tween<double>(begin: 0.0, end: 1.0),
+                                  duration: const Duration(milliseconds: 400),
+                                  curve: Curves.elasticOut,
+                                  builder: (context, value, child) {
+                                    return Transform.scale(
+                                      scale: value,
+                                      child: Stack(
+                                        children: [
+                                          // Shadow effect
+                                          Container(
+                                            height: markerSize,
+                                            width: markerSize,
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  Colors.black.withOpacity(0.2),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                // Highlight the selected location marker
+                                                color: _selectedLocation?.id ==
+                                                        location.id
+                                                    ? Colors.white
+                                                    : Colors.transparent,
+                                                width: 2,
                                               ),
-                                            ],
-                                          ),
-                                          child: Icon(
-                                          LocationTypeUtils.getIcon(location.type),
-                                          color: Colors.white,
-                                          size: markerSize * 0.6,
-                                        ),
-                                        ),
-                                        // Marker background
-                                        Container(
-                                          height: markerSize - 2,
-                                          width: markerSize - 2,
-                                          decoration: BoxDecoration(
-                                            color: LocationTypeUtils.getColor(location.type),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 2,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.2),
+                                                  blurRadius: 6,
+                                                  spreadRadius: 1,
+                                                ),
+                                              ],
                                             ),
-                                          ),
-                                          child: GestureDetector(
-                                            // onTap: () => _showLocationDetails(location.id),
                                             child: Icon(
-                                              LocationTypeUtils.getIcon(location.type),
+                                              LocationTypeUtils.getIcon(
+                                                  location.type),
                                               color: Colors.white,
                                               size: markerSize * 0.6,
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
+                                          // Marker background
+                                          Container(
+                                            height: markerSize - 2,
+                                            width: markerSize - 2,
+                                            decoration: BoxDecoration(
+                                              color: LocationTypeUtils.getColor(
+                                                  location.type),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 2,
+                                              ),
+                                            ),
+                                            child: GestureDetector(
+                                              // onTap: () => _showLocationDetails(location.id),
+                                              child: Icon(
+                                                LocationTypeUtils.getIcon(
+                                                    location.type),
+                                                color: Colors.white,
+                                                size: markerSize * 0.6,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             );
-                          })
-                          .toList(),
-                      ),
+                          }).toList(),
+                        ),
 
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              width: _getMarkerSize(_currentZoom) * 1.5,
-                              height: _getMarkerSize(_currentZoom) * 1.5,
-                              point: _userLocation!,
-                              child: Transform.rotate(
-                                angle: (_currentHeading * (math.pi / 180)),
-                                child: Container(
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            width: _getMarkerSize(_currentZoom) * 1.5,
+                            height: _getMarkerSize(_currentZoom) * 1.5,
+                            point: _userLocation!,
+                            child: Transform.rotate(
+                              angle: (_currentHeading * (math.pi / 180)),
+                              child: Container(
                                 // decoration: BoxDecoration(
                                 //   color: Colors.blue.shade700,
                                 //   shape: BoxShape.circle,
@@ -901,7 +927,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     setState(() {
       _selectedLocation = null;
     });
-    
+
     Navigator.pushNamed(
       context,
       '/location_details',
@@ -959,138 +985,129 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                           ),
                         ],
                       ),
-                  const SizedBox(height: 16),
-                  // Historical filter
-                  FilterOptionWidget(
-                    locationType: LocationType.historical,
-                    isSelected: locationProvider.showHistorical,
-                    onChanged: (value) =>
-                        locationProvider.toggleHistorical(),
-                  ),
-
-                  // Forests filter
-                  FilterOptionWidget(
-                    locationType: LocationType.forest,
-                    isSelected: locationProvider.showForests,
-                    onChanged: (value) =>
-                        locationProvider.toggleForests(),
-                  ),
-
-                  // Cities filter
-                  FilterOptionWidget(
-                    locationType: LocationType.city,
-                    isSelected: locationProvider.showCities,
-                    onChanged: (value) =>
-                        locationProvider.toggleCities(),
-                  ),
-                  
-                  FilterOptionWidget(
-                    locationType: LocationType.barbecue,
-                    isSelected: locationProvider.showBarbecue,
-                    onChanged: (value) =>
-                        locationProvider.toggleBarbecue(),
-                  ),
-                  
-                  // Family filter
-                  FilterOptionWidget(
-                    locationType: LocationType.family,
-                    isSelected: locationProvider.showFamily,
-                    onChanged: (value) =>
-                        locationProvider.toggleFamily(),
-                  ),
-                  
-                  // Viewpoint filter
-                  FilterOptionWidget(
-                    locationType: LocationType.viewpoint,
-                    isSelected: locationProvider.showViewpoint,
-                    onChanged: (value) =>
-                        locationProvider.toggleViewpoint(),
-                  ),
-                  
-                  // Beach filter
-                  FilterOptionWidget(
-                    locationType: LocationType.beach,
-                    isSelected: locationProvider.showBeach,
-                    onChanged: (value) =>
-                        locationProvider.toggleBeach(),
-                  ),
-
-                  // Hiking filter
-                  FilterOptionWidget(
-                    locationType: LocationType.hiking,
-                    isSelected: locationProvider.showHiking,
-                    onChanged: (value) =>
-                        locationProvider.toggleHiking(),
-                  ),
-
-                  // Camping filter
-                  FilterOptionWidget(
-                    locationType: LocationType.camping,
-                    isSelected: locationProvider.showCamping,
-                    onChanged: (value) =>
-                        locationProvider.toggleCamping(),
-                  ),
-                  // Water Spring filter
-                  FilterOptionWidget(
-                    locationType: LocationType.waterSpring,
-                    isSelected: locationProvider.showWaterSpring,
-                    onChanged: (value) =>
-                        locationProvider.toggleWaterSpring(),
-                  ),
-
-                  // Mosque filter
-                  FilterOptionWidget(
-                    locationType: LocationType.mosque,
-                    isSelected: locationProvider.showMosque,
-                    onChanged: (value) =>
-                        locationProvider.toggleMosque(),
-                  ),
-
-                  // Church filter
-                  FilterOptionWidget(
-                    locationType: LocationType.church,
-                    isSelected: locationProvider.showChurch,
-                    onChanged: (value) =>
-                        locationProvider.toggleChurch(),
-                  ),
-
-                  // Other filter
-                  FilterOptionWidget(
-                    locationType: LocationType.other,
-                    isSelected: locationProvider.showOther,
-                    onChanged: (value) =>
-                        locationProvider.toggleOther(),
-                  ),
-
-                  // Actions
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      const SizedBox(height: 16),
+                      // Historical filter
+                      FilterOptionWidget(
+                        locationType: LocationType.historical,
+                        isSelected: locationProvider.showHistorical,
+                        onChanged: (value) =>
+                            locationProvider.toggleHistorical(),
                       ),
-                      child: const Text('تطبيق الفلتر'),
-                    ),
+
+                      // Forests filter
+                      FilterOptionWidget(
+                        locationType: LocationType.forest,
+                        isSelected: locationProvider.showForests,
+                        onChanged: (value) => locationProvider.toggleForests(),
+                      ),
+
+                      // Cities filter
+                      FilterOptionWidget(
+                        locationType: LocationType.city,
+                        isSelected: locationProvider.showCities,
+                        onChanged: (value) => locationProvider.toggleCities(),
+                      ),
+
+                      FilterOptionWidget(
+                        locationType: LocationType.barbecue,
+                        isSelected: locationProvider.showBarbecue,
+                        onChanged: (value) => locationProvider.toggleBarbecue(),
+                      ),
+
+                      // Family filter
+                      FilterOptionWidget(
+                        locationType: LocationType.family,
+                        isSelected: locationProvider.showFamily,
+                        onChanged: (value) => locationProvider.toggleFamily(),
+                      ),
+
+                      // Viewpoint filter
+                      FilterOptionWidget(
+                        locationType: LocationType.viewpoint,
+                        isSelected: locationProvider.showViewpoint,
+                        onChanged: (value) =>
+                            locationProvider.toggleViewpoint(),
+                      ),
+
+                      // Beach filter
+                      FilterOptionWidget(
+                        locationType: LocationType.beach,
+                        isSelected: locationProvider.showBeach,
+                        onChanged: (value) => locationProvider.toggleBeach(),
+                      ),
+
+                      // Hiking filter
+                      FilterOptionWidget(
+                        locationType: LocationType.hiking,
+                        isSelected: locationProvider.showHiking,
+                        onChanged: (value) => locationProvider.toggleHiking(),
+                      ),
+
+                      // Camping filter
+                      FilterOptionWidget(
+                        locationType: LocationType.camping,
+                        isSelected: locationProvider.showCamping,
+                        onChanged: (value) => locationProvider.toggleCamping(),
+                      ),
+                      // Water Spring filter
+                      FilterOptionWidget(
+                        locationType: LocationType.waterSpring,
+                        isSelected: locationProvider.showWaterSpring,
+                        onChanged: (value) =>
+                            locationProvider.toggleWaterSpring(),
+                      ),
+
+                      // Mosque filter
+                      FilterOptionWidget(
+                        locationType: LocationType.mosque,
+                        isSelected: locationProvider.showMosque,
+                        onChanged: (value) => locationProvider.toggleMosque(),
+                      ),
+
+                      // Church filter
+                      FilterOptionWidget(
+                        locationType: LocationType.church,
+                        isSelected: locationProvider.showChurch,
+                        onChanged: (value) => locationProvider.toggleChurch(),
+                      ),
+
+                      // Other filter
+                      FilterOptionWidget(
+                        locationType: LocationType.other,
+                        isSelected: locationProvider.showOther,
+                        onChanged: (value) => locationProvider.toggleOther(),
+                      ),
+
+                      // Actions
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                          ),
+                          child: const Text('تطبيق الفلتر'),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ));
+                ));
           },
         );
       },
     );
   }
-  
+
   void toggleFollowMode() {
     setState(() {
-    _followUserLocation = !_followUserLocation;
-    
-    // If enabling follow mode, immediately center on user
-    if (_followUserLocation && _userLocation != null) {
-      mapController.move(_userLocation!, _currentZoom);
-    }
-  });
-}
+      _followUserLocation = !_followUserLocation;
+
+      // If enabling follow mode, immediately center on user
+      if (_followUserLocation && _userLocation != null) {
+        mapController.move(_userLocation!, _currentZoom);
+      }
+    });
+  }
 
   // IconData _getIconForType(LocationType type) {
   //   switch (type) {
