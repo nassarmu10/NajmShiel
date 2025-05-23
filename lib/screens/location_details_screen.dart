@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
-import 'package:map_explorer/logger.dart';
 import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:map_explorer/widgets/comment_list_widget.dart';
 import 'package:provider/provider.dart';
-
+import 'package:map_explorer/utils/navigation_utils.dart';
 import '../models/location.dart';
 import '../providers/location_data_provider.dart';
 import '../widgets/add_comment_widget.dart';
@@ -173,6 +172,30 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
         );
       }
     }
+  }
+
+  Widget _buildNavigationButton(Location location) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          await NavigationUtils.openInMaps(
+            latitude: location.latitude,
+            longitude: location.longitude,
+            locationName: location.name,
+            context: context,
+          );
+        },
+        icon: const Icon(Icons.navigation),
+        label: const Text('التنقل إلى الموقع'),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+        ),
+      ),
+    );
   }
 
   Widget _buildTagsSection(Location location) {
@@ -404,7 +427,9 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                       ),
                       
                       const SizedBox(height: 16),
-                      
+                      // Navigation button
+                      _buildNavigationButton(location),
+                      const SizedBox(height: 16),
                       // Name with enhanced styling
                       Text(
                         location.name,
@@ -535,62 +560,62 @@ class LocationDetailsScreenState extends State<LocationDetailsScreen> {
                       ),
                       
                       // Map showing the location
-                      Container(
-                        height: 200,
-                        width: double.infinity,
-                        margin: const EdgeInsets.symmetric(vertical: 16),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: FlutterMap(
-                            options: MapOptions(
-                              initialCenter: location.latLng,
-                              initialZoom: 12,
-                              interactionOptions: const InteractionOptions(
-                                flags: InteractiveFlag.none,
-                              ),
-                            ),
-                            children: [
-                              TileLayer(
-                                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
-                                subdomains: const ['a', 'b', 'c'],
-                                additionalOptions: const {
-                                  'attribution': '© OpenStreetMap contributors',
-                                },
-                                retinaMode: RetinaMode.isHighDensity(context),
-                              ),
-                              MarkerLayer(
-                                markers: [
-                                  Marker(
-                                    height: 30,
-                                    width: 30,
-                                    point: location.latLng,
-                                    child: Container(
-                                      height: 40,
-                                      width: 40,
-                                      decoration: BoxDecoration(
-                                        color: LocationTypeUtils.getColor(location.type),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.2),
-                                            blurRadius: 2,
-                                            spreadRadius: 0.5,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        LocationTypeUtils.getIcon(location.type),
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      // Container(
+                      //   height: 200,
+                      //   width: double.infinity,
+                      //   margin: const EdgeInsets.symmetric(vertical: 16),
+                      //   child: ClipRRect(
+                      //     borderRadius: BorderRadius.circular(12),
+                      //     child: FlutterMap(
+                      //       options: MapOptions(
+                      //         initialCenter: location.latLng,
+                      //         initialZoom: 12,
+                      //         interactionOptions: const InteractionOptions(
+                      //           flags: InteractiveFlag.none,
+                      //         ),
+                      //       ),
+                      //       children: [
+                      //         TileLayer(
+                      //           urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+                      //           subdomains: const ['a', 'b', 'c'],
+                      //           additionalOptions: const {
+                      //             'attribution': '© OpenStreetMap contributors',
+                      //           },
+                      //           retinaMode: RetinaMode.isHighDensity(context),
+                      //         ),
+                      //         MarkerLayer(
+                      //           markers: [
+                      //             Marker(
+                      //               height: 30,
+                      //               width: 30,
+                      //               point: location.latLng,
+                      //               child: Container(
+                      //                 height: 40,
+                      //                 width: 40,
+                      //                 decoration: BoxDecoration(
+                      //                   color: LocationTypeUtils.getColor(location.type),
+                      //                   shape: BoxShape.circle,
+                      //                   boxShadow: [
+                      //                     BoxShadow(
+                      //                       color: Colors.black.withOpacity(0.2),
+                      //                       blurRadius: 2,
+                      //                       spreadRadius: 0.5,
+                      //                     ),
+                      //                   ],
+                      //                 ),
+                      //                 child: Icon(
+                      //                   LocationTypeUtils.getIcon(location.type),
+                      //                   color: Colors.white,
+                      //                   size: 20,
+                      //                 ),
+                      //               ),
+                      //             ),
+                      //           ],
+                      //         ),
+                      //       ],
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),
