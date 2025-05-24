@@ -404,6 +404,13 @@ class AddLocationScreenState extends State<AddLocationScreen>
                   );
                 },
                 itemBuilder: (context, index, Prediction prediction) {
+                  // Format the description to remove "Israel" and clean up the text
+                  String formattedDescription = prediction.description ?? '';
+                  formattedDescription = formattedDescription
+                      .replaceAll(', Israel', '')
+                      .replaceAll('ישראל', '')
+                      .trim();
+
                   return Container(
                     padding: const EdgeInsets.all(12),
                     child: Row(
@@ -412,7 +419,7 @@ class AddLocationScreenState extends State<AddLocationScreen>
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            prediction.description ?? '',
+                            formattedDescription,
                             style: const TextStyle(fontSize: 14),
                           ),
                         ),
