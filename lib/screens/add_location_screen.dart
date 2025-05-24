@@ -28,6 +28,8 @@ class AddLocationScreenState extends State<AddLocationScreen>
   final _formKey = GlobalKey<FormState>();
   final MapController mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   String _name = '';
   String _description = '';
@@ -52,6 +54,22 @@ class AddLocationScreenState extends State<AddLocationScreen>
     // Initialize with default location first
     _selectedLocation = countryCenter;
 
+    // Add focus listener
+    _searchFocusNode.addListener(() {
+      if (_searchFocusNode.hasFocus) {
+        // Scroll to the search field when it gets focus
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent * 0.3,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
+
     // Delay the location request to ensure widget tree is fully built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Further delay to ensure map controller is initialized
@@ -66,6 +84,8 @@ class AddLocationScreenState extends State<AddLocationScreen>
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
+    _searchFocusNode.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -357,6 +377,7 @@ class AddLocationScreenState extends State<AddLocationScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('إضافة موقع جديد'),
       ),
@@ -365,71 +386,22 @@ class AddLocationScreenState extends State<AddLocationScreen>
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Google Places Autocomplete
-            Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: GooglePlaceAutoCompleteTextField(
-                googleAPIKey: _apiKey,
-                textEditingController: _searchController,
-                countries: const ["il", "ps"],
-                inputDecoration: const InputDecoration(
-                  labelText: 'ابحث عن موقع',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.search),
-                  alignLabelWithHint: true,
-                  hintText: 'اكتب اسم الموقع أو العنوان',
-                ),
-                debounceTime: 800,
-                isLatLngRequired: true,
-                isCrossBtnShown: true,
-                containerHorizontalPadding: 10,
-                placeType: PlaceType.geocode,
-                getPlaceDetailWithLatLng: (Prediction prediction) {
-                  if (prediction.lat != null && prediction.lng != null) {
-                    setState(() {
-                      _selectedLocation = LatLng(
-                        double.parse(prediction.lat!),
-                        double.parse(prediction.lng!),
-                      );
-                      _name = prediction.description ?? '';
-                    });
-                    // Move map to selected location
-                    mapController.move(_selectedLocation!, 14.0);
-                  }
-                },
-                itemClick: (Prediction prediction) {
-                  _searchController.text = prediction.description ?? '';
-                  _searchController.selection = TextSelection.fromPosition(
-                    TextPosition(offset: prediction.description?.length ?? 0),
-                  );
-                },
-                itemBuilder: (context, index, Prediction prediction) {
-                  // Format the description to remove "Israel" and clean up the text
-                  String formattedDescription = prediction.description ?? '';
-                  formattedDescription = formattedDescription
-                      .replaceAll(', Israel', '')
-                      .replaceAll('ישראל', '')
-                      .trim();
-
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on, color: Colors.blue),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            formattedDescription,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                seperatedBuilder: const Divider(height: 1),
+            // Location name - always show this
+            TextFormField(
+              decoration: const InputDecoration(
+                labelText: 'اسم الموقع',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.place),
+                alignLabelWithHint: true,
+                helperText: 'أدخل اسم الموقع كما تريد أن يظهر في التطبيق',
               ),
+              textAlign: TextAlign.right,
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'الرجاء إدخال اسم' : null,
+              onChanged: (value) => _name = value,
             ),
+
+            const SizedBox(height: 16),
 
             // Image section header
             const SizedBox(height: 24),
@@ -569,6 +541,79 @@ class AddLocationScreenState extends State<AddLocationScreen>
               ),
             ),
 
+            // Google Places Autocomplete - only show when in edit mode
+            if (_editMapMode)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  child: GooglePlaceAutoCompleteTextField(
+                    googleAPIKey: _apiKey,
+                    textEditingController: _searchController,
+                    focusNode: _searchFocusNode,
+                    countries: const ["il", "ps"],
+                    inputDecoration: const InputDecoration(
+                      labelText: 'ابحث عن موقع على الخريطة',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.search),
+                      alignLabelWithHint: true,
+                      hintText: 'اسم الموقع',
+                    ),
+                    debounceTime: 800,
+                    isLatLngRequired: true,
+                    isCrossBtnShown: true,
+                    containerHorizontalPadding: 10,
+                    placeType: PlaceType.geocode,
+                    getPlaceDetailWithLatLng: (Prediction prediction) {
+                      if (prediction.lat != null && prediction.lng != null) {
+                        setState(() {
+                          _selectedLocation = LatLng(
+                            double.parse(prediction.lat!),
+                            double.parse(prediction.lng!),
+                          );
+                        });
+                        // Move map to selected location
+                        mapController.move(_selectedLocation!, 14.0);
+                      }
+                    },
+                    itemClick: (Prediction prediction) {
+                      _searchController.text = prediction.description ?? '';
+                      _searchController.selection = TextSelection.fromPosition(
+                        TextPosition(
+                            offset: prediction.description?.length ?? 0),
+                      );
+                    },
+                    itemBuilder: (context, index, Prediction prediction) {
+                      // Format the description to remove "Israel" and clean up the text
+                      String formattedDescription =
+                          prediction.description ?? '';
+                      formattedDescription = formattedDescription
+                          .replaceAll(', Israel', '')
+                          .replaceAll('Israel', '')
+                          .replaceAll('ישראל', '')
+                          .trim();
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.location_on, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                formattedDescription,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    seperatedBuilder: const Divider(height: 1),
+                  ),
+                ),
+              ),
+
             // Location selection map
             Container(
               height: 200,
@@ -656,6 +701,7 @@ class AddLocationScreenState extends State<AddLocationScreen>
                 ),
               ),
             ),
+
             if (_selectedLocation == null)
               const Padding(
                 padding: EdgeInsets.only(top: 8.0),
@@ -668,21 +714,6 @@ class AddLocationScreenState extends State<AddLocationScreen>
 
             const SizedBox(height: 16),
 
-            // Location name
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'اسم الموقع',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.place),
-                alignLabelWithHint: true,
-              ),
-              textAlign: TextAlign.right,
-              validator: (value) =>
-                  value == null || value.isEmpty ? 'الرجاء إدخال اسم' : null,
-              onChanged: (value) => _name = value,
-            ),
-
-            const SizedBox(height: 16),
             // tag selection
             _buildTagSelection(),
             const SizedBox(height: 16),
