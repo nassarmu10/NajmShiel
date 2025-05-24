@@ -9,6 +9,9 @@ import 'package:map_explorer/logger.dart';
 import 'package:map_explorer/utils/image_utils.dart';
 import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:provider/provider.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
+import 'package:google_places_flutter/model/prediction.dart';
+import 'package:google_places_flutter/model/place_type.dart';
 import '../models/location.dart';
 import '../providers/location_data_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -20,10 +23,12 @@ class AddLocationScreen extends StatefulWidget {
   AddLocationScreenState createState() => AddLocationScreenState();
 }
 
-class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindingObserver {
+class AddLocationScreenState extends State<AddLocationScreen>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final MapController mapController = MapController();
-  
+  final TextEditingController _searchController = TextEditingController();
+
   String _name = '';
   String _description = '';
   LocationType _selectedType = LocationType.historical;
@@ -35,15 +40,18 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
   bool _isUploadingImages = false;
   bool _isMapInitialized = false;
   Set<LocationType> _selectedTags = {};
-  
+
+  // Google Places API key - replace with your actual API key
+  final String _apiKey = 'AIzaSyDyTiCCwe5jFJQOL3nv8TRJ2OonydYI6Zs';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
-    // Initialize with default location first 
+
+    // Initialize with default location first
     _selectedLocation = countryCenter;
-    
+
     // Delay the location request to ensure widget tree is fully built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Further delay to ensure map controller is initialized
@@ -54,13 +62,14 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
       });
     });
   }
-  
+
   @override
   void dispose() {
+    _searchController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-  
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && !_isMapInitialized) {
@@ -72,19 +81,19 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
       });
     }
   }
-  
+
   final LatLng countryCenter = const LatLng(31.5, 35.0);
 
   Future<void> _safeGetCurrentLocation() async {
     if (!mounted) return;
-    
+
     setState(() {
       _isLoadingLocation = true;
     });
-    
+
     try {
       _isMapInitialized = true;
-      
+
       // Check if location services are enabled
       bool serviceEnabled;
       try {
@@ -96,10 +105,10 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         logger.e('Error checking location services: $e');
         serviceEnabled = false;
       }
-      
+
       if (!serviceEnabled) {
         if (!mounted) return;
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('خدمات الموقع معطلة. يرجى تمكينها في الإعدادات.'),
@@ -113,7 +122,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         });
         return;
       }
-      
+
       // Request permission with timeout
       LocationPermission permission;
       try {
@@ -121,7 +130,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
           const Duration(seconds: 3),
           onTimeout: () => LocationPermission.denied,
         );
-        
+
         if (permission == LocationPermission.denied) {
           permission = await Geolocator.requestPermission().timeout(
             const Duration(seconds: 5),
@@ -132,11 +141,11 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         logger.e('Error requesting location permission: $e');
         permission = LocationPermission.denied;
       }
-      
-      if (permission == LocationPermission.denied || 
+
+      if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (!mounted) return;
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('تم رفض إذن الموقع.'),
@@ -150,7 +159,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         });
         return;
       }
-      
+
       // Get current position with timeout
       Position position;
       try {
@@ -163,7 +172,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
       } catch (e) {
         logger.e('Error getting current location: $e');
         if (!mounted) return;
-        
+
         setState(() {
           _isLoadingLocation = false;
           _editMapMode = true;
@@ -171,21 +180,21 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         });
         return;
       }
-      
+
       if (!mounted) return;
-      
+
       // Update location in state
       setState(() {
         _selectedLocation = LatLng(position.latitude, position.longitude);
         _isLoadingLocation = false;
       });
-      
+
       // Wait for map controller to be ready before moving
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // Final mounted check before manipulating map
       if (!mounted) return;
-      
+
       // Use safe post-frame callback to move map
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
@@ -200,7 +209,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
     } catch (e) {
       logger.e('General error getting location: $e');
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('خطأ في الحصول على الموقع: ${e.toString()}'),
@@ -299,16 +308,17 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                 });
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected 
-                    ? LocationTypeUtils.getColor(tag).withOpacity(0.2)
-                    : Colors.grey[200],
+                  color: isSelected
+                      ? LocationTypeUtils.getColor(tag).withOpacity(0.2)
+                      : Colors.grey[200],
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected 
-                      ? LocationTypeUtils.getColor(tag)
-                      : Colors.grey[400]!,
+                    color: isSelected
+                        ? LocationTypeUtils.getColor(tag)
+                        : Colors.grey[400]!,
                     width: isSelected ? 2 : 1,
                   ),
                 ),
@@ -318,19 +328,20 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                     Icon(
                       LocationTypeUtils.getIcon(tag),
                       size: 16,
-                      color: isSelected 
-                        ? LocationTypeUtils.getColor(tag)
-                        : Colors.grey[600],
+                      color: isSelected
+                          ? LocationTypeUtils.getColor(tag)
+                          : Colors.grey[600],
                     ),
                     const SizedBox(width: 6),
                     Text(
                       LocationTypeUtils.getDisplayName(tag),
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected 
-                          ? LocationTypeUtils.getColor(tag)
-                          : Colors.grey[600],
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? LocationTypeUtils.getColor(tag)
+                            : Colors.grey[600],
                       ),
                     ),
                   ],
@@ -354,6 +365,65 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // Google Places Autocomplete
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: GooglePlaceAutoCompleteTextField(
+                googleAPIKey: _apiKey,
+                textEditingController: _searchController,
+                countries: const ["il", "ps"],
+                inputDecoration: const InputDecoration(
+                  labelText: 'ابحث عن موقع',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.search),
+                  alignLabelWithHint: true,
+                  hintText: 'اكتب اسم الموقع أو العنوان',
+                ),
+                debounceTime: 800,
+                isLatLngRequired: true,
+                isCrossBtnShown: true,
+                containerHorizontalPadding: 10,
+                placeType: PlaceType.geocode,
+                getPlaceDetailWithLatLng: (Prediction prediction) {
+                  if (prediction.lat != null && prediction.lng != null) {
+                    setState(() {
+                      _selectedLocation = LatLng(
+                        double.parse(prediction.lat!),
+                        double.parse(prediction.lng!),
+                      );
+                      _name = prediction.description ?? '';
+                    });
+                    // Move map to selected location
+                    mapController.move(_selectedLocation!, 14.0);
+                  }
+                },
+                itemClick: (Prediction prediction) {
+                  _searchController.text = prediction.description ?? '';
+                  _searchController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: prediction.description?.length ?? 0),
+                  );
+                },
+                itemBuilder: (context, index, Prediction prediction) {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            prediction.description ?? '',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                seperatedBuilder: const Divider(height: 1),
+              ),
+            ),
+
             // Image section header
             const SizedBox(height: 24),
             Row(
@@ -447,7 +517,8 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                 decoration: BoxDecoration(
                   color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
+                  border: Border.all(
+                      color: Colors.grey.shade400, style: BorderStyle.solid),
                 ),
                 child: const Center(
                   child: Text(
@@ -464,7 +535,9 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: _editMapMode ? Colors.blue.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                color: _editMapMode
+                    ? Colors.blue.withOpacity(0.1)
+                    : Colors.green.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -476,9 +549,9 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _editMapMode 
-                        ? 'انقر على الخريطة لتحديد موقع'
-                        : 'استخدام موقعك الحالي',
+                      _editMapMode
+                          ? 'انقر على الخريطة لتحديد موقع'
+                          : 'استخدام موقعك الحالي',
                       style: TextStyle(
                         fontStyle: FontStyle.italic,
                         color: _editMapMode ? Colors.blue : Colors.green,
@@ -488,7 +561,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                 ],
               ),
             ),
-            
+
             // Location selection map
             Container(
               height: 200,
@@ -519,7 +592,8 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+                          urlTemplate:
+                              'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
                           subdomains: const ['a', 'b', 'c'],
                           userAgentPackageName: 'com.najmshiel.map',
                           maxZoom: 18,
@@ -562,12 +636,13 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
               margin: const EdgeInsets.only(top: 8, bottom: 16),
               child: OutlinedButton.icon(
                 onPressed: _toggleEditMapMode,
-                icon: Icon(_editMapMode ? Icons.my_location : Icons.edit_location),
-                label: Text(_editMapMode 
-                  ? 'استخدام موقعي' 
-                  : 'تعديل موقع الخريطة'),
+                icon: Icon(
+                    _editMapMode ? Icons.my_location : Icons.edit_location),
+                label:
+                    Text(_editMapMode ? 'استخدام موقعي' : 'تعديل موقع الخريطة'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -583,9 +658,9 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                   textAlign: TextAlign.right,
                 ),
               ),
-              
+
             const SizedBox(height: 16),
-              
+
             // Location name
             TextFormField(
               decoration: const InputDecoration(
@@ -595,11 +670,11 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                 alignLabelWithHint: true,
               ),
               textAlign: TextAlign.right,
-              validator: (value) => 
-                value == null || value.isEmpty ? 'الرجاء إدخال اسم' : null,
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'الرجاء إدخال اسم' : null,
               onChanged: (value) => _name = value,
             ),
-              
+
             const SizedBox(height: 16),
             // tag selection
             _buildTagSelection(),
@@ -622,9 +697,9 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                 }
               },
             ),
-              
+
             const SizedBox(height: 16),
-              
+
             // Description
             TextFormField(
               decoration: const InputDecoration(
@@ -638,13 +713,13 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
               maxLines: 5,
               textAlign: TextAlign.right,
               textDirection: TextDirection.rtl,
-              // validator: (value) => 
+              // validator: (value) =>
               //   value == null || value.isEmpty ? 'الرجاء إدخال وصف' : null,
               onChanged: (value) => _description = value,
             ),
-              
+
             const SizedBox(height: 24),
-              
+
             // Submit button
             ElevatedButton(
               onPressed: _isUploadingImages ? null : _submitLocation,
@@ -652,33 +727,35 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               child: _isUploadingImages
-                ? const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 12),
-                      Text('جاري التحميل...'),
-                    ],
-                  )
-                : const Text('إضافة الموقع'),
+                        SizedBox(width: 12),
+                        Text('جاري التحميل...'),
+                      ],
+                    )
+                  : const Text('إضافة الموقع'),
             ),
           ],
         ),
       ),
     );
   }
-  
+
   Future<void> _submitLocation() async {
     if (!mounted) return;
-    
-    if (_formKey.currentState?.validate() != true || _selectedLocation == null) {
+
+    if (_formKey.currentState?.validate() != true ||
+        _selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -697,8 +774,9 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
 
     try {
       // Get the location provider to access user data
-      final locationProvider = Provider.of<LocationDataProvider>(context, listen: false);
-      
+      final locationProvider =
+          Provider.of<LocationDataProvider>(context, listen: false);
+
       // Get current username
       final username = await locationProvider.getUserName();
 
@@ -717,7 +795,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
             ),
           );
         }
-        
+
         // Upload each image
         for (var image in _selectedImages) {
           final imageUrl = await ImageUtils.uploadToCloudinary(
@@ -727,7 +805,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
             uploadPreset: 'location_images',
             folder: 'locations',
           );
-          
+
           if (imageUrl != null) {
             imageUrls.add(imageUrl);
           }
@@ -747,7 +825,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
         creatorName: username,
         tags: _selectedTags.toList(),
       );
-      
+
       // Add to provider
       if (mounted) {
         // We're now using the enhanced model with GeoPoint
@@ -768,7 +846,7 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
               backgroundColor: Colors.green,
             ),
           );
-        
+
           // Return to map
           Navigator.pop(context);
         }
@@ -776,13 +854,13 @@ class AddLocationScreenState extends State<AddLocationScreen> with WidgetsBindin
     } catch (e) {
       // 5. Error handling
       logger.e('Error submitting location: $e');
-      
+
       if (mounted) {
         // Hide loading indicator
         setState(() {
           _isUploadingImages = false;
         });
-        
+
         // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

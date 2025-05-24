@@ -59,6 +59,7 @@ dependencies:
   arabic_font: ^0.0.9
   url_launcher: ^6.3.1
   flutter_linkify: ^6.0.0
+  google_places_flutter: ^2.0.6
 
 dev_dependencies:
   flutter_test:
