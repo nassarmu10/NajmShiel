@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 import '../models/location.dart';
 import '../providers/location_data_provider.dart';
@@ -771,7 +772,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   keepBuffer: 2,
                   backgroundColor: Colors.white,
                   userAgentPackageName: 'il.org.osm.israelhiking',
-                  tileProvider: NetworkTileProvider(),
+                  // tileProvider: NetworkTileProvider(),
+                  tileProvider: const FMTCStore('hiking_map').getTileProvider(),
                   additionalOptions: const {
                     'attribution': '© Israel Hiking Map contributors',
                   },

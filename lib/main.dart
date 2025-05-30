@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:map_explorer/screens/location_details_screen.dart';
 import 'package:provider/provider.dart';
-
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'providers/location_data_provider.dart';
 import 'screens/map_screen.dart';
 import 'screens/add_location_screen.dart';
@@ -62,6 +62,8 @@ Future<void> initializeApp() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    await FMTCObjectBoxBackend().initialise();
+    await const FMTCStore('hiking_map').manage.create();
     // Initialize Firebase
     // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform,);
     if (kIsWeb) {
