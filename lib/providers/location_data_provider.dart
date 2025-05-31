@@ -6,6 +6,7 @@ import 'package:map_explorer/models/location.dart';
 import 'package:map_explorer/models/comment.dart';
 import 'package:map_explorer/models/vote.dart';
 import 'package:map_explorer/services/location_service.dart';
+import 'package:map_explorer/utils/location_type_utils.dart';
 
 class LocationDataProvider with ChangeNotifier {
   final FirebaseLocationService _firebaseService = FirebaseLocationService();
@@ -92,35 +93,46 @@ class LocationDataProvider with ChangeNotifier {
   // Get filtered locations
   List<Location> get filteredLocations {
     return _locations.where((location) {
-      switch (location.type) {
-        case LocationType.historical:
-          return _showHistorical;
-        case LocationType.forest:
-          return _showForests;
-        case LocationType.city:
-          return _showCities;
-        case LocationType.barbecue:
-          return _showBarbecue;
-        case LocationType.family:
-          return _showFamily;
-        case LocationType.viewpoint:
-          return _showViewpoint;
-        case LocationType.beach:
-          return _showBeach;
-        case LocationType.hiking:
-          return _showHiking;
-        case LocationType.camping:
-          return _showCamping;
-        case LocationType.waterSpring:
-          return _showWaterSpring;
-        case LocationType.mosque:
-          return _showMosque;
-        case LocationType.church:
-          return _showChurch;
-        case LocationType.other:
-          return _showOther;
-      }
+      // Check main type
+      bool mainTypeVisible = _isTypeVisible(location.type);
+      
+      // Check if any tags are visible
+      bool anyTagVisible = location.tags.any((tag) => _isTypeVisible(tag));
+      
+      // Show location if either main type is visible OR any tag is visible
+      return mainTypeVisible || anyTagVisible;
     }).toList();
+  }
+
+  bool _isTypeVisible(LocationType type) {
+    switch (type) {
+      case LocationType.historical:
+        return _showHistorical;
+      case LocationType.forest:
+        return _showForests;
+      case LocationType.city:
+        return _showCities;
+      case LocationType.barbecue:
+        return _showBarbecue;
+      case LocationType.family:
+        return _showFamily;
+      case LocationType.viewpoint:
+        return _showViewpoint;
+      case LocationType.beach:
+        return _showBeach;
+      case LocationType.hiking:
+        return _showHiking;
+      case LocationType.camping:
+        return _showCamping;
+      case LocationType.waterSpring:
+        return _showWaterSpring;
+      case LocationType.mosque:
+        return _showMosque;
+      case LocationType.church:
+        return _showChurch;
+      case LocationType.other:
+        return _showOther;
+    }
   }
 
   // Search locations by name
@@ -129,16 +141,26 @@ class LocationDataProvider with ChangeNotifier {
       return [];
     }
     
-    // Convert query to lowercase for case-insensitive search
     final lowercaseQuery = query.toLowerCase();
     
-    // Filter locations based on name match
     return _locations.where((location) {
       final lowercaseName = location.name.toLowerCase();
       final lowercaseDescription = location.description.toLowerCase();
       
-      return lowercaseName.contains(lowercaseQuery) || 
+      bool matchesNameOrDescription = lowercaseName.contains(lowercaseQuery) || 
              lowercaseDescription.contains(lowercaseQuery);
+
+      // Search in main type
+      bool matchesMainType = LocationTypeUtils.getDisplayName(location.type)
+          .toLowerCase().contains(lowercaseQuery);
+
+      // Search in tags
+      bool matchesTags = location.tags.any((tag) {
+        final tagDisplayName = LocationTypeUtils.getDisplayName(tag).toLowerCase();
+        return tagDisplayName.contains(lowercaseQuery);
+      });
+
+      return matchesNameOrDescription || matchesMainType || matchesTags;
     }).toList();
   }
 
