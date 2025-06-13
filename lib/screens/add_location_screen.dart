@@ -17,7 +17,12 @@ import '../providers/location_data_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 class AddLocationScreen extends StatefulWidget {
-  const AddLocationScreen({super.key});
+  final LatLng? initialLocation; // Add this parameter
+
+  const AddLocationScreen({
+    super.key,
+    this.initialLocation, // Make it optional
+  });
 
   @override
   AddLocationScreenState createState() => AddLocationScreenState();
@@ -51,30 +56,54 @@ class AddLocationScreenState extends State<AddLocationScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Initialize with provided location or default location
+    _selectedLocation = widget.initialLocation ?? countryCenter;
 
-    // Initialize with default location first
-    _selectedLocation = countryCenter;
+    // If initial location is provided, set edit mode to true and skip location request
+    if (widget.initialLocation != null) {
+      _editMapMode = true;
+      _isLoadingLocation = false;
+      // _isLocationReady = true;
+      _isMapInitialized = true;
 
-    // Add focus listener for search
-    _searchFocusNode.addListener(() {
-      if (_searchFocusNode.hasFocus) {
-        // Scroll to the search field when it gets focus
-        Future.delayed(const Duration(milliseconds: 100), () {
+      // Move map to the initial location after a short delay
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
-            _scrollController.animateTo(
-              _scrollController.position.maxScrollExtent * 0.3,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
+            mapController.move(widget.initialLocation!, 14.0);
           }
         });
-      }
-    });
+      });
+    } else {
+      // Original initialization logic for when no initial location is provided
+      // Add focus listener for search
+      _searchFocusNode.addListener(() {
+        if (_searchFocusNode.hasFocus) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) {
+              _scrollController.animateTo(
+                _scrollController.position.maxScrollExtent * 0.3,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
+      });
 
-    // Add focus listener for description field
+      // Delay the location request to ensure widget tree is fully built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          if (mounted) {
+            _safeGetCurrentLocation();
+          }
+        });
+      });
+    }
+
+    // Add focus listener for description field (this remains the same)
     _descriptionFocusNode.addListener(() {
       if (_descriptionFocusNode.hasFocus) {
-        // Scroll to the bottom when description field gets focus
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted && _scrollController.hasClients) {
             _scrollController.animateTo(
@@ -85,16 +114,6 @@ class AddLocationScreenState extends State<AddLocationScreen>
           }
         });
       }
-    });
-
-    // Delay the location request to ensure widget tree is fully built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Further delay to ensure map controller is initialized
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        if (mounted) {
-          _safeGetCurrentLocation();
-        }
-      });
     });
   }
 
@@ -308,7 +327,8 @@ class AddLocationScreenState extends State<AddLocationScreen>
 
   // Method to toggle between modes
   void _toggleEditMapMode() {
-    if (_editMapMode == true) {
+    if (_editMapMode == true && widget.initialLocation == null) {
+      // Only get current location if no initial location was provided
       _safeGetCurrentLocation();
     }
     setState(() {

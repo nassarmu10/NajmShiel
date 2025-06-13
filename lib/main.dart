@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:map_explorer/screens/location_details_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
@@ -204,23 +205,34 @@ class MyApp extends StatelessWidget {
           textDirection: TextDirection.rtl,
           child: AuthWrapper(),
         ),
-        routes: {
-          '/add_location': (context) => const Directionality(
-            textDirection: TextDirection.rtl,
-            child: AddLocationScreen(),
-          ),
-        },
+
         onGenerateRoute: (settings) {
-          if (settings.name == '/location_details') {
-            final locationId = settings.arguments as String;
-            return MaterialPageRoute(
-              builder: (context) => Directionality(
-                textDirection: TextDirection.rtl,
-                child: LocationDetailsScreen(locationId: locationId),
-              ),
-            );
+          switch (settings.name) {
+            case '/add_location':
+              // Check if arguments contain initial location
+              final args = settings.arguments as Map<String, dynamic>?;
+              final initialLocation = args?['initialLocation'] as LatLng?;
+              return MaterialPageRoute(
+                builder: (context) => Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: AddLocationScreen(
+                    initialLocation: initialLocation,
+                  ),
+                ),
+              );
+
+            case '/location_details':
+              final locationId = settings.arguments as String;
+              return MaterialPageRoute(
+                builder: (context) => Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: LocationDetailsScreen(locationId: locationId),
+                ),
+              );
+
+            default:
+              return null;
           }
-          return null;
         },
       ),
     );

@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:map_explorer/logger.dart';
+import 'package:map_explorer/screens/add_location_screen.dart';
 import 'package:map_explorer/screens/profile_screen.dart';
 import 'package:map_explorer/utils/location_type_utils.dart';
 import 'package:map_explorer/widgets/filter_option_widget.dart';
@@ -651,6 +652,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           FloatingActionButton(
             heroTag: "add",
             onPressed: () {
+              // Navigate to add location without initial location (original behavior)
               Navigator.pushNamed(context, '/add_location');
             },
             child: const Icon(Icons.add_location_alt),
@@ -763,6 +765,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     _selectedLocation = null;
                   });
                 },
+                // Add long press handler
+                onLongPress: (tapPosition, point) {
+                  _showAddLocationDialog(point);
+                },
               ),
               children: [
                 TileLayer(
@@ -772,7 +778,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   keepBuffer: 2,
                   backgroundColor: Colors.white,
                   userAgentPackageName: 'il.org.osm.israelhiking',
-                  // tileProvider: NetworkTileProvider(),
                   tileProvider: const FMTCStore('hiking_map').getTileProvider(),
                   additionalOptions: const {
                     'attribution': '© Israel Hiking Map contributors',
@@ -875,7 +880,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                       ),
                                     ),
                                     child: GestureDetector(
-                                      // onTap: () => _showLocationDetails(location.id),
                                       child: Icon(
                                         LocationTypeUtils.getIcon(
                                             location.type),
@@ -903,6 +907,67 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           ],
         );
       },
+    );
+  }
+
+  void _showAddLocationDialog(LatLng point) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'إضافة موقع جديد',
+            textAlign: TextAlign.right,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Text(
+                'هل تريد إضافة موقع جديد في هذا المكان؟',
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'الإحداثيات: ${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _navigateToAddLocation(point);
+              },
+              child: const Text('إضافة موقع'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Add this method to MapScreen class
+  void _navigateToAddLocation(LatLng point) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddLocationScreen(
+          initialLocation: point,
+        ),
+      ),
     );
   }
 
